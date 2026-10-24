@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: office
+    description: Technical office workspace
 paths:
   /healthz:
     get:
@@ -24,6 +26,199 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /office/profile:
+    post:
+      operationId: syncOfficeProfile
+      tags: [office]
+      summary: Register the signed-in user in the office workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeProfileInput"
+      responses:
+        "200":
+          description: Current office member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeMember"
+  /office/members:
+    get:
+      operationId: listOfficeMembers
+      tags: [office]
+      summary: List engineers and managers in the workspace
+      responses:
+        "200":
+          description: Workspace members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeMember"
+  /office/dashboard:
+    get:
+      operationId: getOfficeDashboard
+      tags: [office]
+      summary: Get project and task totals for the dashboard
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardOverview"
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [office]
+      summary: List projects
+      responses:
+        "200":
+          description: Projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [office]
+      summary: Create a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /projects/{projectId}:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: getProject
+      tags: [office]
+      summary: Get a project and its tasks
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectDetails"
+        "404":
+          description: Project not found
+    patch:
+      operationId: updateProject
+      tags: [office]
+      summary: Update a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [office]
+      summary: Delete a project
+      responses:
+        "204":
+          description: Project and its tasks deleted
+        "404":
+          description: Project not found
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [office]
+      summary: List tasks with project and assignee information
+      parameters:
+        - name: projectId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: createTask
+      tags: [office]
+      summary: Assign a task to an engineer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: Created task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /tasks/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      operationId: updateTask
+      tags: [office]
+      summary: Update task progress or assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "404":
+          description: Task not found
+    delete:
+      operationId: deleteTask
+      tags: [office]
+      summary: Delete a task
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          description: Task not found
 components:
   schemas:
     HealthStatus:
@@ -33,4 +228,130 @@ components:
           type: string
       required:
         - status
+    OfficeProfileInput:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+    OfficeMember:
+      type: object
+      required: [id, name, email, role, createdAt]
+      properties:
+        id: { type: integer }
+        clerkUserId: { type: string }
+        name: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [manager, engineer] }
+        createdAt: { type: string, format: date-time }
+    Project:
+      type: object
+      required: [id, name, client, location, status, progress, startDate, endDate, taskCount, completedTaskCount, updatedAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        client: { type: string }
+        location: { type: string }
+        status: { type: string, enum: [active, on_hold, completed] }
+        progress: { type: integer }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        taskCount: { type: integer }
+        completedTaskCount: { type: integer }
+        updatedAt: { type: string, format: date-time }
+    ProjectDetails:
+      allOf:
+        - $ref: "#/components/schemas/Project"
+        - type: object
+          required: [description, tasks]
+          properties:
+            description: { type: string }
+            tasks:
+              type: array
+              items: { $ref: "#/components/schemas/Task" }
+    ProjectInput:
+      type: object
+      required: [name, client, location, startDate, endDate]
+      properties:
+        name: { type: string, minLength: 1 }
+        client: { type: string }
+        location: { type: string }
+        description: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    ProjectUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        client: { type: string }
+        location: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [active, on_hold, completed] }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    Task:
+      type: object
+      required: [id, projectId, projectName, title, description, category, priority, status, assigneeId, assigneeName, dueDate, updatedAt]
+      properties:
+        id: { type: integer }
+        projectId: { type: integer }
+        projectName: { type: string }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string, enum: [shop_drawing, submittal, rfi, quantity_takeoff, coordination, other] }
+        priority: { type: string, enum: [low, medium, high, urgent] }
+        status: { type: string, enum: [todo, in_progress, review, done] }
+        assigneeId: { type: ["integer", "null"] }
+        assigneeName: { type: ["string", "null"] }
+        dueDate: { type: string, format: date }
+        updatedAt: { type: string, format: date-time }
+    TaskInput:
+      type: object
+      required: [projectId, title, category, priority, dueDate]
+      properties:
+        projectId: { type: integer }
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        category: { type: string, enum: [shop_drawing, submittal, rfi, quantity_takeoff, coordination, other] }
+        priority: { type: string, enum: [low, medium, high, urgent] }
+        assigneeId: { type: ["integer", "null"] }
+        dueDate: { type: string, format: date }
+    TaskUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        category: { type: string, enum: [shop_drawing, submittal, rfi, quantity_takeoff, coordination, other] }
+        priority: { type: string, enum: [low, medium, high, urgent] }
+        status: { type: string, enum: [todo, in_progress, review, done] }
+        assigneeId: { type: ["integer", "null"] }
+        dueDate: { type: string, format: date }
+    DashboardOverview:
+      type: object
+      required: [projectCount, activeProjectCount, taskCount, completedTaskCount, overdueTaskCount, dueSoonTaskCount, statusBreakdown, upcomingTasks, recentTasks]
+      properties:
+        projectCount: { type: integer }
+        activeProjectCount: { type: integer }
+        taskCount: { type: integer }
+        completedTaskCount: { type: integer }
+        overdueTaskCount: { type: integer }
+        dueSoonTaskCount: { type: integer }
+        statusBreakdown:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status: { type: string, enum: [todo, in_progress, review, done] }
+              count: { type: integer }
+        upcomingTasks:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
+        recentTasks:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
 

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/technical-office/"
+title = "Technical Office"
+description = "A shared technical-office project and task tracker for managers and engineers. Organize active projects, assign technical work, set due dates, track progress, and see overdue and upcoming work at a glance."
+version = "1.0.0"
+id = "artifacts/technical-office"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/technical-office/" ]
+localPort = 25644
+
+[services.development]
+run = "pnpm --filter @workspace/technical-office run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/technical-office", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/technical-office/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25644"
+BASE_PATH = "/technical-office/"

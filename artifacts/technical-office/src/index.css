@@ -1,0 +1,161 @@
+@layer theme, base, clerk, components, utilities;
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@import '@clerk/themes/shadcn.css';
+@import 'tw-animate-css';
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --background: 43 37% 96%;
+  --foreground: 183 29% 16%;
+  --border: 38 21% 85%;
+  --input: 38 21% 85%;
+  --card: 43 37% 99%;
+  --card-foreground: 183 29% 16%;
+  --card-border: 38 21% 87%;
+  --popover: 43 37% 99%;
+  --popover-foreground: 183 29% 16%;
+  --popover-border: 38 21% 85%;
+  --primary: 177 40% 27%;
+  --primary-foreground: 43 37% 97%;
+  --secondary: 38 32% 90%;
+  --secondary-foreground: 183 29% 20%;
+  --muted: 42 22% 91%;
+  --muted-foreground: 181 10% 43%;
+  --accent: 22 75% 57%;
+  --accent-foreground: 43 37% 98%;
+  --destructive: 3 60% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 177 40% 27%;
+  --sidebar: 178 33% 19%;
+  --sidebar-foreground: 43 29% 91%;
+  --chart-1: 177 40% 27%;
+  --chart-2: 22 75% 57%;
+  --chart-3: 39 53% 62%;
+  --chart-4: 196 29% 56%;
+  --chart-5: 12 42% 64%;
+  --app-font-sans: 'Noto Sans Arabic', 'DM Sans', sans-serif;
+  --app-font-mono: 'IBM Plex Mono', monospace;
+  --radius: 0.85rem;
+  --button-outline: rgba(20, 50, 49, .12);
+  --badge-outline: rgba(20, 50, 49, .07);
+  --elevate-1: rgba(20, 50, 49, .035);
+  --elevate-2: rgba(20, 50, 49, .08);
+  --shadow-sm: 0 4px 16px rgba(40, 56, 51, .06);
+  --shadow: 0 12px 32px rgba(40, 56, 51, .08);
+}
+
+.dark {
+  --background: 183 23% 11%;
+  --foreground: 43 29% 92%;
+  --border: 180 13% 25%;
+  --input: 180 13% 25%;
+  --card: 183 20% 14%;
+  --card-foreground: 43 29% 92%;
+  --card-border: 180 13% 24%;
+  --popover: 183 20% 14%;
+  --popover-foreground: 43 29% 92%;
+  --popover-border: 180 13% 25%;
+  --primary: 170 38% 55%;
+  --primary-foreground: 183 23% 10%;
+  --secondary: 180 15% 22%;
+  --secondary-foreground: 43 29% 92%;
+  --muted: 180 15% 22%;
+  --muted-foreground: 178 10% 67%;
+  --accent: 22 75% 60%;
+  --accent-foreground: 183 23% 10%;
+  --destructive: 3 56% 57%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 170 38% 55%;
+  --sidebar: 183 23% 9%;
+  --sidebar-foreground: 43 29% 92%;
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply font-sans antialiased bg-background text-foreground; margin: 0; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; }
+}
+
+html { direction: rtl; }
+.ltr { direction: ltr; }
+.app-shell { min-height: 100dvh; display: flex; }
+.sidebar { width: 252px; background: hsl(var(--sidebar)); color: hsl(var(--sidebar-foreground)); min-height: 100dvh; padding: 26px 18px 20px; display: flex; flex-direction: column; flex-shrink: 0; }
+.main-area { flex: 1; min-width: 0; }
+.page-content { max-width: 1440px; padding: 34px clamp(20px, 4vw, 56px) 64px; margin: 0 auto; }
+.topbar { height: 76px; display:flex; align-items:center; justify-content:space-between; padding: 0 clamp(20px, 4vw, 56px); border-bottom:1px solid hsl(var(--border)); background:rgba(250,248,242,.72); backdrop-filter: blur(12px); }
+.brand-mark { width: 39px; height: 39px; background: hsl(var(--accent)); color:white; display:grid; place-items:center; border-radius: 13px 13px 13px 4px; }
+.nav-link { display:flex; align-items:center; gap:12px; border-radius:11px; padding:11px 12px; color:rgba(248,245,233,.68); text-decoration:none; font-size:14px; transition:background .2s,color .2s,transform .2s; }
+.nav-link:hover { background:rgba(255,255,255,.08); color:white; transform:translateX(-2px); }
+.nav-link.active { color:#fff; background:rgba(224,128,86,.18); box-shadow:inset -2px 0 0 hsl(var(--accent)); }
+.panel { background:hsl(var(--card)); border:1px solid hsl(var(--card-border)); border-radius:18px; box-shadow:var(--shadow-sm); }
+.btn { border:0; border-radius:10px; padding:11px 17px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-size:14px; font-weight:700; transition:transform .2s,background .2s,box-shadow .2s; text-decoration:none; }
+.btn:hover { transform:translateY(-1px); }
+.btn-primary { background:hsl(var(--primary)); color:hsl(var(--primary-foreground)); box-shadow:0 5px 12px rgba(37,93,88,.15); }
+.btn-primary:hover { background:#1e5a56; }
+.btn-soft { background:hsl(var(--secondary)); color:hsl(var(--secondary-foreground)); }
+.btn-ghost { background:transparent; color:hsl(var(--muted-foreground)); }
+.btn-danger { color:#a63d35; background:#f7e7e3; }
+.field { width:100%; padding:11px 13px; border:1px solid hsl(var(--border)); border-radius:10px; background:hsl(var(--card)); color:hsl(var(--foreground)); outline:none; transition:border .2s,box-shadow .2s; }
+.field:focus { border-color:hsl(var(--primary)); box-shadow:0 0 0 3px hsla(177,40%,27%,.1); }
+.field-label { display:block; margin-bottom:7px; font-size:13px; font-weight:700; color:hsl(var(--foreground)); }
+.table-row { border-bottom:1px solid hsl(var(--border)); }
+.badge { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:5px 10px; font-size:11px; font-weight:700; white-space:nowrap; }
+.skeleton { background:linear-gradient(90deg,#ece9df 25%,#f4f1e8 45%,#ece9df 65%); background-size:300% 100%; animation:shimmer 1.4s ease infinite; border-radius:9px; }
+.modal-backdrop { position:fixed; inset:0; z-index:50; background:rgba(17,39,38,.45); backdrop-filter:blur(5px); display:grid; place-items:center; padding:18px; animation:fadeIn .2s ease; }
+.modal { width:min(620px,100%); max-height:90dvh; overflow:auto; background:hsl(var(--card)); border:1px solid hsl(var(--border)); border-radius:20px; box-shadow:0 24px 80px rgba(15,37,36,.2); padding:26px; animation:rise .25s ease; }
+.landing-grid { background-image:linear-gradient(rgba(40,84,78,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(40,84,78,.045) 1px,transparent 1px); background-size:36px 36px; }
+.hero-stamp { writing-mode:vertical-rl; }
+@keyframes shimmer { to { background-position:-300% 0; } }
+@keyframes fadeIn { from {opacity:0} to {opacity:1} }
+@keyframes rise { from {opacity:0;transform:translateY(10px)} to {opacity:1;transform:translateY(0)} }
+@media (max-width: 850px) {
+  .sidebar { width:76px; padding:22px 10px; align-items:center; }
+  .sidebar .brand-word,.sidebar .nav-label,.sidebar .side-caption,.sidebar .profile-copy { display:none; }
+  .nav-link { justify-content:center; width:48px; padding:13px 0; }
+}
+@media (max-width: 650px) {
+  .app-shell { display:block; }
+  .sidebar { position:fixed; z-index:20; bottom:0; top:auto; min-height:unset; width:100%; height:70px; flex-direction:row; justify-content:space-around; padding:8px 12px; border-top:1px solid rgba(255,255,255,.12); }
+  .sidebar .brand-block,.sidebar .side-caption,.sidebar .profile-block { display:none; }
+  .sidebar nav { display:flex; width:100%; justify-content:space-around; gap:4px; }
+  .nav-link { width:auto; height:48px; flex:1; }
+  .main-area { padding-bottom:70px; }
+  .topbar { height:64px; }
+  .page-content { padding:25px 17px 40px; }
+}
