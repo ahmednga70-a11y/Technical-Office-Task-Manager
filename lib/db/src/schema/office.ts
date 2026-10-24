@@ -1,6 +1,8 @@
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import {
   date,
+  check,
   index,
   integer,
   pgEnum,
@@ -37,6 +39,10 @@ export const taskStatusEnum = pgEnum("task_status", [
   "in_progress",
   "review",
   "done",
+]);
+export const officeAttachmentStatusEnum = pgEnum("office_attachment_status", [
+  "pending",
+  "ready",
 ]);
 
 export const officeMembersTable = pgTable(
@@ -200,6 +206,41 @@ export const officeNotificationsTable = pgTable(
   ],
 );
 
+export const officeAttachmentsTable = pgTable(
+  "office_attachments",
+  {
+    id: serial("id").primaryKey(),
+    projectId: integer("project_id").references(() => projectsTable.id, {
+      onDelete: "cascade",
+    }),
+    taskId: integer("task_id").references(() => tasksTable.id, {
+      onDelete: "cascade",
+    }),
+    uploadedById: integer("uploaded_by_id").references(
+      () => officeMembersTable.id,
+      { onDelete: "set null" },
+    ),
+    uploadedByName: text("uploaded_by_name").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    size: integer("size").notNull(),
+    objectPath: text("object_path").notNull(),
+    status: officeAttachmentStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("office_attachments_project_idx").on(table.projectId, table.createdAt),
+    index("office_attachments_task_idx").on(table.taskId, table.createdAt),
+    uniqueIndex("office_attachments_object_path_idx").on(table.objectPath),
+    check(
+      "office_attachments_exactly_one_parent_check",
+      sql`(${table.projectId} IS NOT NULL AND ${table.taskId} IS NULL) OR (${table.projectId} IS NULL AND ${table.taskId} IS NOT NULL)`,
+    ),
+  ],
+);
+
 export const insertOfficeMemberSchema = createInsertSchema(officeMembersTable).omit({
   id: true,
   createdAt: true,
@@ -228,9 +269,16 @@ export const insertOfficeNotificationSchema = createInsertSchema(
   id: true,
   createdAt: true,
 });
+export const insertOfficeAttachmentSchema = createInsertSchema(
+  officeAttachmentsTable,
+).omit({
+  id: true,
+  createdAt: true,
+});
 export type OfficeMember = z.infer<typeof insertOfficeMemberSchema>;
 export type Project = typeof projectsTable.$inferSelect;
 export type Task = typeof tasksTable.$inferSelect;
 export type TaskComment = typeof taskCommentsTable.$inferSelect;
 export type TaskActivity = typeof taskActivityTable.$inferSelect;
 export type OfficeNotification = typeof officeNotificationsTable.$inferSelect;
+export type OfficeAttachment = typeof officeAttachmentsTable.$inferSelect;

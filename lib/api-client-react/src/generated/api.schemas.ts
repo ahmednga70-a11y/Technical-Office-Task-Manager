@@ -88,6 +88,52 @@ export interface OfficeNotificationRead {
   readAt: string;
 }
 
+export interface OfficeAttachment {
+  id: number;
+  /** @nullable */
+  projectId: number | null;
+  /** @nullable */
+  taskId: number | null;
+  uploadedByName: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+  canDelete: boolean;
+}
+
+export type OfficeAttachmentUploadInputScope = typeof OfficeAttachmentUploadInputScope[keyof typeof OfficeAttachmentUploadInputScope];
+
+
+export const OfficeAttachmentUploadInputScope = {
+  project: 'project',
+  task: 'task',
+} as const;
+
+export interface OfficeAttachmentUploadInput {
+  scope: OfficeAttachmentUploadInputScope;
+  /** @nullable */
+  projectId: number | null;
+  /** @nullable */
+  taskId: number | null;
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  fileName: string;
+  /**
+     * @minimum 1
+     * @maximum 52428800
+     */
+  size: number;
+}
+
+export interface OfficeAttachmentUpload {
+  attachmentId: number;
+  uploadURL: string;
+  contentType: string;
+}
+
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
 
 

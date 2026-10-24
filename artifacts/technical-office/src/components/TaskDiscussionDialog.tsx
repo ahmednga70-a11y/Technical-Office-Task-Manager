@@ -7,6 +7,7 @@ import {
   useGetTaskDiscussion,
 } from '@workspace/api-client-react';
 import type { Task, TaskActivity, TaskComment } from '@workspace/api-client-react';
+import AttachmentsPanel from '@/components/AttachmentsPanel';
 
 const MAX_COMMENT_LENGTH = 4000;
 
@@ -73,10 +74,11 @@ type ThreadEntry =
 
 export interface TaskDiscussionDialogProps {
   task: Task;
+  canUpload: boolean;
   onClose: () => void;
 }
 
-export default function TaskDiscussionDialog({ task, onClose }: TaskDiscussionDialogProps) {
+export default function TaskDiscussionDialog({ task, canUpload, onClose }: TaskDiscussionDialogProps) {
   const queryClient = useQueryClient();
   const discussionQuery = useGetTaskDiscussion(task.id, {
     query: { queryKey: getGetTaskDiscussionQueryKey(task.id) },
@@ -177,6 +179,9 @@ export default function TaskDiscussionDialog({ task, onClose }: TaskDiscussionDi
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7" aria-live="polite">
+          <div className="mb-5">
+            <AttachmentsPanel scope="task" taskId={task.id} canUpload={canUpload} />
+          </div>
           {discussionQuery.isLoading ? (
             <div className="space-y-5 py-2" aria-label="جارٍ تحميل النقاش" role="status">
               {[0, 1, 2].map((item) => (

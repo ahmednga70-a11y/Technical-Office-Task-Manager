@@ -78,7 +78,7 @@ async function findMember(clerkUserId: string) {
   return member;
 }
 
-async function requireMember(req: Request, res: Response) {
+export async function requireMember(req: Request, res: Response) {
   const userId = currentClerkUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Sign in is required." });
@@ -92,7 +92,7 @@ async function requireMember(req: Request, res: Response) {
   return member;
 }
 
-function configuredManagerEmail(): string | undefined {
+export function configuredManagerEmail(): string | undefined {
   const email = process.env.OFFICE_MANAGER_EMAIL?.trim().toLowerCase();
   return email || undefined;
 }
@@ -275,7 +275,7 @@ async function managerOnly(req: Request, res: Response) {
   return member;
 }
 
-async function isConfiguredManager(
+export async function isConfiguredManager(
   req: Request,
   member: Awaited<ReturnType<typeof findMember>>,
 ): Promise<boolean> {
@@ -293,7 +293,11 @@ async function isConfiguredManager(
   return (await verifiedClerkEmail(clerkUserId)) === managerEmail;
 }
 
-async function requireTaskParticipant(req: Request, res: Response, taskId: number) {
+export async function requireTaskParticipant(
+  req: Request,
+  res: Response,
+  taskId: number,
+) {
   const member = await requireMember(req, res);
   if (!member) return undefined;
   const [task] = await db
@@ -310,7 +314,7 @@ async function requireTaskParticipant(req: Request, res: Response, taskId: numbe
     task.assigneeId !== member.id
   ) {
     res.status(403).json({
-      error: "Only the manager or assigned engineer can access this discussion.",
+      error: "Only the manager or assigned engineer can access this task.",
     });
     return undefined;
   }

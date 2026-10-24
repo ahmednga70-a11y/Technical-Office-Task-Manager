@@ -169,6 +169,112 @@ export const MarkOfficeNotificationReadResponse = zod.object({
 
 
 /**
+ * @summary Create a temporary URL to upload a project or task attachment
+ */
+export const requestOfficeAttachmentUploadBodyFileNameMax = 255;
+
+export const requestOfficeAttachmentUploadBodySizeMax = 52428800;
+
+
+
+export const RequestOfficeAttachmentUploadBody = zod.object({
+  "scope": zod.enum(['project', 'task']),
+  "projectId": zod.number().int().nullable(),
+  "taskId": zod.number().int().nullable(),
+  "fileName": zod.string().min(1).max(requestOfficeAttachmentUploadBodyFileNameMax),
+  "size": zod.number().int().min(1).max(requestOfficeAttachmentUploadBodySizeMax)
+})
+
+export const RequestOfficeAttachmentUploadResponse = zod.object({
+  "attachmentId": zod.number().int(),
+  "uploadURL": zod.string().url(),
+  "contentType": zod.string()
+})
+
+
+/**
+ * @summary Verify a direct upload and make the attachment available
+ */
+export const CompleteOfficeAttachmentUploadParams = zod.object({
+  "attachmentId": zod.coerce.number().int()
+})
+
+export const CompleteOfficeAttachmentUploadResponse = zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullable(),
+  "taskId": zod.number().int().nullable(),
+  "uploadedByName": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})
+
+
+/**
+ * @summary Delete an attachment uploaded by the current member or a manager
+ */
+export const DeleteOfficeAttachmentParams = zod.object({
+  "attachmentId": zod.coerce.number().int()
+})
+
+export const DeleteOfficeAttachmentResponse = zod.void()
+
+
+/**
+ * @summary Preview or download an attachment after access checks
+ */
+export const GetOfficeAttachmentContentParams = zod.object({
+  "attachmentId": zod.coerce.number().int()
+})
+
+export const GetOfficeAttachmentContentResponse = zod.unknown()
+
+
+/**
+ * @summary List attachments visible to office members on a project
+ */
+export const ListProjectAttachmentsParams = zod.object({
+  "projectId": zod.coerce.number().int()
+})
+
+export const ListProjectAttachmentsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullable(),
+  "taskId": zod.number().int().nullable(),
+  "uploadedByName": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})
+export const ListProjectAttachmentsResponse = zod.array(ListProjectAttachmentsResponseItem)
+
+
+/**
+ * @summary List attachments visible to a task's manager or assigned engineer
+ */
+export const ListTaskAttachmentsParams = zod.object({
+  "taskId": zod.coerce.number().int()
+})
+
+export const ListTaskAttachmentsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullable(),
+  "taskId": zod.number().int().nullable(),
+  "uploadedByName": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})
+export const ListTaskAttachmentsResponse = zod.array(ListTaskAttachmentsResponseItem)
+
+
+/**
  * @summary List projects
  */
 export const ListProjectsResponseItem = zod.object({

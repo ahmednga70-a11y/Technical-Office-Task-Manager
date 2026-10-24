@@ -23,6 +23,9 @@ import type {
   DashboardOverview,
   HealthStatus,
   ListTasksParams,
+  OfficeAttachment,
+  OfficeAttachmentUpload,
+  OfficeAttachmentUploadInput,
   OfficeInvitation,
   OfficeInvitationInput,
   OfficeMember,
@@ -777,6 +780,473 @@ export const useMarkOfficeNotificationRead = <TError = ErrorType<void>,
       > => {
       return useMutation(getMarkOfficeNotificationReadMutationOptions(options));
     }
+
+export const getRequestOfficeAttachmentUploadUrl = () => {
+
+
+
+
+  return `/api/office/attachments/upload-url`
+}
+
+/**
+ * @summary Create a temporary URL to upload a project or task attachment
+ */
+export const requestOfficeAttachmentUpload = async (officeAttachmentUploadInput: OfficeAttachmentUploadInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeAttachmentUpload> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeAttachmentUpload>(getRequestOfficeAttachmentUploadUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeAttachmentUploadInput)
+  }
+);}
+
+
+
+
+
+export const getRequestOfficeAttachmentUploadMutationKey = () => ['requestOfficeAttachmentUpload'] as const;
+
+export const getRequestOfficeAttachmentUploadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOfficeAttachmentUpload>>, TError,RequestOfficeAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestOfficeAttachmentUpload>>, TError,RequestOfficeAttachmentUploadMutationVariables, TContext> => {
+
+const mutationKey = getRequestOfficeAttachmentUploadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestOfficeAttachmentUpload>>, RequestOfficeAttachmentUploadMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestOfficeAttachmentUpload(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestOfficeAttachmentUploadMutationResult = NonNullable<Awaited<ReturnType<typeof requestOfficeAttachmentUpload>>>
+    export type RequestOfficeAttachmentUploadMutationBody = BodyType<OfficeAttachmentUploadInput>
+    export type RequestOfficeAttachmentUploadMutationError = ErrorType<void>
+    export type RequestOfficeAttachmentUploadMutationVariables = {data: BodyType<OfficeAttachmentUploadInput>}
+
+    /**
+ * @summary Create a temporary URL to upload a project or task attachment
+ */
+export const useRequestOfficeAttachmentUpload = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOfficeAttachmentUpload>>, TError,RequestOfficeAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestOfficeAttachmentUpload>>,
+        TError,
+        RequestOfficeAttachmentUploadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestOfficeAttachmentUploadMutationOptions(options));
+    }
+
+export const getCompleteOfficeAttachmentUploadUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/office/attachments/${attachmentId}/complete`
+}
+
+/**
+ * @summary Verify a direct upload and make the attachment available
+ */
+export const completeOfficeAttachmentUpload = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<OfficeAttachment> => {
+
+  return customFetch<OfficeAttachment>(getCompleteOfficeAttachmentUploadUrl(attachmentId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteOfficeAttachmentUploadMutationKey = () => ['completeOfficeAttachmentUpload'] as const;
+
+export const getCompleteOfficeAttachmentUploadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>, TError,CompleteOfficeAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>, TError,CompleteOfficeAttachmentUploadMutationVariables, TContext> => {
+
+const mutationKey = getCompleteOfficeAttachmentUploadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>, CompleteOfficeAttachmentUploadMutationVariables> = (props) => {
+          const {attachmentId} = props ?? {};
+
+          return  completeOfficeAttachmentUpload(attachmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteOfficeAttachmentUploadMutationResult = NonNullable<Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>>
+
+    export type CompleteOfficeAttachmentUploadMutationError = ErrorType<void>
+    export type CompleteOfficeAttachmentUploadMutationVariables = {attachmentId: number}
+
+    /**
+ * @summary Verify a direct upload and make the attachment available
+ */
+export const useCompleteOfficeAttachmentUpload = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>, TError,CompleteOfficeAttachmentUploadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>,
+        TError,
+        CompleteOfficeAttachmentUploadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteOfficeAttachmentUploadMutationOptions(options));
+    }
+
+export const getDeleteOfficeAttachmentUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/office/attachments/${attachmentId}`
+}
+
+/**
+ * @summary Delete an attachment uploaded by the current member or a manager
+ */
+export const deleteOfficeAttachment = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteOfficeAttachmentUrl(attachmentId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOfficeAttachmentMutationKey = () => ['deleteOfficeAttachment'] as const;
+
+export const getDeleteOfficeAttachmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeAttachment>>, TError,DeleteOfficeAttachmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeAttachment>>, TError,DeleteOfficeAttachmentMutationVariables, TContext> => {
+
+const mutationKey = getDeleteOfficeAttachmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOfficeAttachment>>, DeleteOfficeAttachmentMutationVariables> = (props) => {
+          const {attachmentId} = props ?? {};
+
+          return  deleteOfficeAttachment(attachmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOfficeAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOfficeAttachment>>>
+
+    export type DeleteOfficeAttachmentMutationError = ErrorType<void>
+    export type DeleteOfficeAttachmentMutationVariables = {attachmentId: number}
+
+    /**
+ * @summary Delete an attachment uploaded by the current member or a manager
+ */
+export const useDeleteOfficeAttachment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeAttachment>>, TError,DeleteOfficeAttachmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOfficeAttachment>>,
+        TError,
+        DeleteOfficeAttachmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteOfficeAttachmentMutationOptions(options));
+    }
+
+export const getGetOfficeAttachmentContentUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/office/attachments/${attachmentId}/content`
+}
+
+/**
+ * @summary Preview or download an attachment after access checks
+ */
+export const getOfficeAttachmentContent = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetOfficeAttachmentContentUrl(attachmentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeAttachmentContentQueryKey = (attachmentId: number,) => {
+    return [
+    `/api/office/attachments/${attachmentId}/content`
+    ] as const;
+    }
+
+
+export const getGetOfficeAttachmentContentQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeAttachmentContent>>, TError = ErrorType<void>>(attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeAttachmentContent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeAttachmentContentQueryKey(attachmentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeAttachmentContent>>> = ({ signal }) => getOfficeAttachmentContent(attachmentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: attachmentId !== null && attachmentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeAttachmentContent>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeAttachmentContentQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeAttachmentContent>>>
+export type GetOfficeAttachmentContentQueryError = ErrorType<void>
+
+
+/**
+ * @summary Preview or download an attachment after access checks
+ */
+
+export function useGetOfficeAttachmentContent<TData = Awaited<ReturnType<typeof getOfficeAttachmentContent>>, TError = ErrorType<void>>(
+ attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeAttachmentContent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeAttachmentContentQueryOptions(attachmentId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListProjectAttachmentsUrl = (projectId: number,) => {
+
+
+
+
+  return `/api/projects/${projectId}/attachments`
+}
+
+/**
+ * @summary List attachments visible to office members on a project
+ */
+export const listProjectAttachments = async (projectId: number, options?: Parameters<typeof customFetch>[1]): Promise<OfficeAttachment[]> => {
+
+  return customFetch<OfficeAttachment[]>(getListProjectAttachmentsUrl(projectId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProjectAttachmentsQueryKey = (projectId: number,) => {
+    return [
+    `/api/projects/${projectId}/attachments`
+    ] as const;
+    }
+
+
+export const getListProjectAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listProjectAttachments>>, TError = ErrorType<void>>(projectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjectAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProjectAttachmentsQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProjectAttachments>>> = ({ signal }) => listProjectAttachments(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: projectId !== null && projectId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProjectAttachments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProjectAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listProjectAttachments>>>
+export type ListProjectAttachmentsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List attachments visible to office members on a project
+ */
+
+export function useListProjectAttachments<TData = Awaited<ReturnType<typeof listProjectAttachments>>, TError = ErrorType<void>>(
+ projectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProjectAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProjectAttachmentsQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListTaskAttachmentsUrl = (taskId: number,) => {
+
+
+
+
+  return `/api/tasks/${taskId}/attachments`
+}
+
+/**
+ * @summary List attachments visible to a task's manager or assigned engineer
+ */
+export const listTaskAttachments = async (taskId: number, options?: Parameters<typeof customFetch>[1]): Promise<OfficeAttachment[]> => {
+
+  return customFetch<OfficeAttachment[]>(getListTaskAttachmentsUrl(taskId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTaskAttachmentsQueryKey = (taskId: number,) => {
+    return [
+    `/api/tasks/${taskId}/attachments`
+    ] as const;
+    }
+
+
+export const getListTaskAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listTaskAttachments>>, TError = ErrorType<void>>(taskId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTaskAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTaskAttachmentsQueryKey(taskId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTaskAttachments>>> = ({ signal }) => listTaskAttachments(taskId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: taskId !== null && taskId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTaskAttachments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTaskAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listTaskAttachments>>>
+export type ListTaskAttachmentsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List attachments visible to a task's manager or assigned engineer
+ */
+
+export function useListTaskAttachments<TData = Awaited<ReturnType<typeof listTaskAttachments>>, TError = ErrorType<void>>(
+ taskId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTaskAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTaskAttachmentsQueryOptions(taskId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListProjectsUrl = () => {
 

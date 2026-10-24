@@ -149,6 +149,139 @@ paths:
           description: Notification does not belong to the current member or task access is restricted
         "404":
           description: Notification not found
+  /office/attachments/upload-url:
+    post:
+      operationId: requestOfficeAttachmentUpload
+      tags: [office]
+      summary: Create a temporary URL to upload a project or task attachment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeAttachmentUploadInput"
+      responses:
+        "200":
+          description: Upload URL and pending attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeAttachmentUpload"
+        "400":
+          description: Invalid file name, type, or size
+        "403":
+          description: Upload is not allowed for this project or task
+        "413":
+          description: File exceeds the upload size limit
+  /office/attachments/{attachmentId}/complete:
+    parameters:
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      operationId: completeOfficeAttachmentUpload
+      tags: [office]
+      summary: Verify a direct upload and make the attachment available
+      responses:
+        "200":
+          description: Completed attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeAttachment"
+        "403":
+          description: Upload owner or task access is required
+        "404":
+          description: Pending attachment not found
+  /office/attachments/{attachmentId}:
+    parameters:
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: integer
+    delete:
+      operationId: deleteOfficeAttachment
+      tags: [office]
+      summary: Delete an attachment uploaded by the current member or a manager
+      responses:
+        "204":
+          description: Attachment deleted
+        "403":
+          description: Attachment access or delete permission is required
+        "404":
+          description: Attachment not found
+  /office/attachments/{attachmentId}/content:
+    parameters:
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: getOfficeAttachmentContent
+      tags: [office]
+      summary: Preview or download an attachment after access checks
+      responses:
+        "200":
+          description: Attachment bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Attachment access is restricted
+        "404":
+          description: Attachment not found
+  /projects/{projectId}/attachments:
+    parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: listProjectAttachments
+      tags: [office]
+      summary: List attachments visible to office members on a project
+      responses:
+        "200":
+          description: Project attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeAttachment"
+        "404":
+          description: Project not found
+  /tasks/{taskId}/attachments:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: listTaskAttachments
+      tags: [office]
+      summary: List attachments visible to a task's manager or assigned engineer
+      responses:
+        "200":
+          description: Task attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeAttachment"
+        "403":
+          description: Task access is restricted
+        "404":
+          description: Task not found
   /projects:
     get:
       operationId: listProjects
@@ -413,6 +546,35 @@ components:
       properties:
         id: { type: integer }
         readAt: { type: string, format: date-time }
+    OfficeAttachment:
+      type: object
+      required: [id, projectId, taskId, uploadedByName, fileName, contentType, size, createdAt, canDelete]
+      properties:
+        id: { type: integer }
+        projectId: { type: ["integer", "null"] }
+        taskId: { type: ["integer", "null"] }
+        uploadedByName: { type: string }
+        fileName: { type: string }
+        contentType: { type: string }
+        size: { type: integer }
+        createdAt: { type: string, format: date-time }
+        canDelete: { type: boolean }
+    OfficeAttachmentUploadInput:
+      type: object
+      required: [scope, projectId, taskId, fileName, size]
+      properties:
+        scope: { type: string, enum: [project, task] }
+        projectId: { type: ["integer", "null"] }
+        taskId: { type: ["integer", "null"] }
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        size: { type: integer, minimum: 1, maximum: 52428800 }
+    OfficeAttachmentUpload:
+      type: object
+      required: [attachmentId, uploadURL, contentType]
+      properties:
+        attachmentId: { type: integer }
+        uploadURL: { type: string, format: uri }
+        contentType: { type: string }
     Project:
       type: object
       required: [id, name, client, location, status, progress, startDate, endDate, taskCount, completedTaskCount, updatedAt]
