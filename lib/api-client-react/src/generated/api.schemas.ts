@@ -239,6 +239,53 @@ export interface TaskUpdate {
   dueDate?: string;
 }
 
+export interface TaskComment {
+  id: number;
+  taskId: number;
+  /** @nullable */
+  authorId: number | null;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export type TaskActivityEventType = typeof TaskActivityEventType[keyof typeof TaskActivityEventType];
+
+
+export const TaskActivityEventType = {
+  created: 'created',
+  status_changed: 'status_changed',
+  due_date_changed: 'due_date_changed',
+  assignee_changed: 'assignee_changed',
+} as const;
+
+export interface TaskActivity {
+  id: number;
+  taskId: number;
+  /** @nullable */
+  actorId: number | null;
+  actorName: string;
+  eventType: TaskActivityEventType;
+  /** @nullable */
+  oldValue: string | null;
+  /** @nullable */
+  newValue: string | null;
+  createdAt: string;
+}
+
+export interface TaskDiscussion {
+  comments: TaskComment[];
+  activities: TaskActivity[];
+}
+
+export interface TaskCommentInput {
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  body: string;
+}
+
 export type DashboardOverviewStatusBreakdownItemStatus = typeof DashboardOverviewStatusBreakdownItemStatus[keyof typeof DashboardOverviewStatusBreakdownItemStatus];
 
 

@@ -236,6 +236,21 @@ paths:
         required: true
         schema:
           type: integer
+    get:
+      operationId: getTaskDiscussion
+      tags: [office]
+      summary: Get discussion and activity history for a task
+      responses:
+        "200":
+          description: Task comments and activity history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskDiscussion"
+        "403":
+          description: Task access is restricted to its assignee and the manager
+        "404":
+          description: Task not found
     patch:
       operationId: updateTask
       tags: [office]
@@ -253,6 +268,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Task"
+        "404":
+          description: Task not found
+  /tasks/{taskId}/comments:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: integer
+    post:
+      operationId: createTaskComment
+      tags: [office]
+      summary: Add a comment to a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCommentInput"
+      responses:
+        "201":
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskComment"
+        "403":
+          description: Task access is restricted to its assignee and the manager
         "404":
           description: Task not found
     delete:
@@ -389,6 +432,45 @@ components:
         status: { type: string, enum: [todo, in_progress, review, done] }
         assigneeId: { type: ["integer", "null"] }
         dueDate: { type: string, format: date }
+    TaskComment:
+      type: object
+      required: [id, taskId, authorId, authorName, body, createdAt]
+      properties:
+        id: { type: integer }
+        taskId: { type: integer }
+        authorId: { type: ["integer", "null"] }
+        authorName: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+    TaskActivity:
+      type: object
+      required: [id, taskId, actorId, actorName, eventType, oldValue, newValue, createdAt]
+      properties:
+        id: { type: integer }
+        taskId: { type: integer }
+        actorId: { type: ["integer", "null"] }
+        actorName: { type: string }
+        eventType:
+          type: string
+          enum: [created, status_changed, due_date_changed, assignee_changed]
+        oldValue: { type: ["string", "null"] }
+        newValue: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    TaskDiscussion:
+      type: object
+      required: [comments, activities]
+      properties:
+        comments:
+          type: array
+          items: { $ref: "#/components/schemas/TaskComment" }
+        activities:
+          type: array
+          items: { $ref: "#/components/schemas/TaskActivity" }
+    TaskCommentInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 4000 }
     DashboardOverview:
       type: object
       required: [projectCount, activeProjectCount, taskCount, completedTaskCount, overdueTaskCount, dueSoonTaskCount, statusBreakdown, upcomingTasks, recentTasks]

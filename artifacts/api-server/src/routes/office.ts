@@ -1,11 +1,14 @@
 import { clerkClient, getAuth } from "@clerk/express";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   CreateProjectBody,
   CreateProjectResponse,
   CreateOfficeInvitationBody,
   CreateOfficeInvitationResponse,
+  CreateTaskCommentBody,
+  CreateTaskCommentParams,
+  CreateTaskCommentResponse,
   CreateTaskBody,
   CreateTaskResponse,
   DeleteProjectParams,
@@ -13,6 +16,8 @@ import {
   GetOfficeDashboardResponse,
   GetProjectParams,
   GetProjectResponse,
+  GetTaskDiscussionParams,
+  GetTaskDiscussionResponse,
   ListOfficeMembersResponse,
   ListOfficeInvitationsResponse,
   ListProjectsResponse,
@@ -32,6 +37,8 @@ import {
   db,
   officeMembersTable,
   projectsTable,
+  taskActivityTable,
+  taskCommentsTable,
   tasksTable,
 } from "@workspace/db";
 
@@ -249,17 +256,53 @@ async function managerOnly(req: Request, res: Response) {
     res.status(503).json({ error: "Manager email is not configured." });
     return undefined;
   }
-  const clerkUserId = currentClerkUserId(req);
-  const email = clerkUserId ? await verifiedClerkEmail(clerkUserId) : undefined;
-  if (
-    member.role !== "manager" ||
-    member.email.trim().toLowerCase() !== managerEmail ||
-    email !== managerEmail
-  ) {
+  if (!(await isConfiguredManager(req, member))) {
     res.status(403).json({ error: "Manager access is required for this action." });
     return undefined;
   }
   return member;
+}
+
+async function isConfiguredManager(
+  req: Request,
+  member: Awaited<ReturnType<typeof findMember>>,
+): Promise<boolean> {
+  const managerEmail = configuredManagerEmail();
+  const clerkUserId = currentClerkUserId(req);
+  if (
+    !member ||
+    !managerEmail ||
+    member.role !== "manager" ||
+    member.email.trim().toLowerCase() !== managerEmail ||
+    !clerkUserId
+  ) {
+    return false;
+  }
+  return (await verifiedClerkEmail(clerkUserId)) === managerEmail;
+}
+
+async function requireTaskParticipant(req: Request, res: Response, taskId: number) {
+  const member = await requireMember(req, res);
+  if (!member) return undefined;
+  const [task] = await db
+    .select()
+    .from(tasksTable)
+    .where(eq(tasksTable.id, taskId))
+    .limit(1);
+  if (!task) {
+    res.status(404).json({ error: "Task not found." });
+    return undefined;
+  }
+  if (
+    !(await isConfiguredManager(req, member)) &&
+    task.assigneeId !== member.id
+  ) {
+    res.status(403).json({
+      error: "Only the manager or assigned engineer can access this discussion.",
+    });
+    return undefined;
+  }
+  return { member, task };
 }
 
 router.post("/office/profile", async (req, res): Promise<void> => {
@@ -694,16 +737,80 @@ router.post("/tasks", async (req, res): Promise<void> => {
       return;
     }
   }
-  const [task] = await db
-    .insert(tasksTable)
-    .values({
-      ...parsed.data,
-      dueDate: toDateOnly(parsed.data.dueDate),
-      createdById: manager.id,
-    })
-    .returning();
+  const [task] = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(tasksTable)
+      .values({
+        ...parsed.data,
+        dueDate: toDateOnly(parsed.data.dueDate),
+        createdById: manager.id,
+      })
+      .returning();
+    await tx.insert(taskActivityTable).values({
+      taskId: created.id,
+      actorId: manager.id,
+      actorName: manager.name,
+      eventType: "created",
+      oldValue: null,
+      newValue: created.title,
+    });
+    return [created];
+  });
   const taskDto = (await listTaskRows()).find((row) => row.id === task.id);
   res.status(201).json(CreateTaskResponse.parse(taskDto));
+});
+
+router.get("/tasks/:taskId/discussion", async (req, res): Promise<void> => {
+  const params = GetTaskDiscussionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const access = await requireTaskParticipant(req, res, params.data.taskId);
+  if (!access) return;
+  const [comments, activities] = await Promise.all([
+    db
+      .select()
+      .from(taskCommentsTable)
+      .where(eq(taskCommentsTable.taskId, params.data.taskId))
+      .orderBy(desc(taskCommentsTable.createdAt), desc(taskCommentsTable.id)),
+    db
+      .select()
+      .from(taskActivityTable)
+      .where(eq(taskActivityTable.taskId, params.data.taskId))
+      .orderBy(desc(taskActivityTable.createdAt), desc(taskActivityTable.id)),
+  ]);
+  res.json(GetTaskDiscussionResponse.parse({ comments, activities }));
+});
+
+router.post("/tasks/:taskId/comments", async (req, res): Promise<void> => {
+  const params = CreateTaskCommentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const access = await requireTaskParticipant(req, res, params.data.taskId);
+  if (!access) return;
+  const parsed = CreateTaskCommentBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const body = parsed.data.body.trim();
+  if (!body) {
+    res.status(400).json({ error: "Comment cannot be empty." });
+    return;
+  }
+  const [comment] = await db
+    .insert(taskCommentsTable)
+    .values({
+      taskId: access.task.id,
+      authorId: access.member.id,
+      authorName: access.member.name,
+      body,
+    })
+    .returning();
+  res.status(201).json(CreateTaskCommentResponse.parse(comment));
 });
 
 router.patch("/tasks/:taskId", async (req, res): Promise<void> => {
@@ -728,7 +835,8 @@ router.patch("/tasks/:taskId", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Task not found." });
     return;
   }
-  if (member.role !== "manager") {
+  const canManage = await isConfiguredManager(req, member);
+  if (!canManage) {
     const changesRestrictedFields =
       (parsed.data.title !== undefined &&
         parsed.data.title !== existing.title) ||
@@ -764,11 +872,68 @@ router.patch("/tasks/:taskId", async (req, res): Promise<void> => {
   const { dueDate, ...taskFields } = parsed.data;
   const taskUpdates: Partial<typeof tasksTable.$inferInsert> = { ...taskFields };
   if (dueDate) taskUpdates.dueDate = toDateOnly(dueDate);
-  const [task] = await db
-    .update(tasksTable)
-    .set(taskUpdates)
-    .where(eq(tasksTable.id, params.data.taskId))
-    .returning();
+  const events: Array<{
+    eventType: "status_changed" | "due_date_changed" | "assignee_changed";
+    oldValue: string | null;
+    newValue: string | null;
+  }> = [];
+  if (parsed.data.status !== undefined && parsed.data.status !== existing.status) {
+    events.push({
+      eventType: "status_changed",
+      oldValue: existing.status,
+      newValue: parsed.data.status,
+    });
+  }
+  if (dueDate && toDateOnly(dueDate) !== existing.dueDate) {
+    events.push({
+      eventType: "due_date_changed",
+      oldValue: existing.dueDate,
+      newValue: toDateOnly(dueDate),
+    });
+  }
+  if (
+    parsed.data.assigneeId !== undefined &&
+    parsed.data.assigneeId !== existing.assigneeId
+  ) {
+    const assigneeIds = [existing.assigneeId, parsed.data.assigneeId].filter(
+      (id): id is number => id !== null,
+    );
+    const assignees = assigneeIds.length
+      ? await db
+          .select({ id: officeMembersTable.id, name: officeMembersTable.name })
+          .from(officeMembersTable)
+          .where(inArray(officeMembersTable.id, assigneeIds))
+      : [];
+    const names = new Map(assignees.map((assignee) => [assignee.id, assignee.name]));
+    events.push({
+      eventType: "assignee_changed",
+      oldValue: existing.assigneeId
+        ? names.get(existing.assigneeId) ?? "عضو سابق"
+        : "غير معيّن",
+      newValue:
+        parsed.data.assigneeId === null
+          ? "غير معيّن"
+          : names.get(parsed.data.assigneeId) ?? "عضو سابق",
+    });
+  }
+  const [task] = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(tasksTable)
+      .set(taskUpdates)
+      .where(eq(tasksTable.id, params.data.taskId))
+      .returning();
+    if (events.length) {
+      await tx.insert(taskActivityTable).values(
+        events.map((event) => ({
+          taskId: updated.id,
+          actorId: member.id,
+          actorName: member.name,
+          ...event,
+        })),
+      );
+    }
+    return [updated];
+  });
   const taskDto = (await listTaskRows()).find((row) => row.id === task.id);
   res.json(UpdateTaskResponse.parse(taskDto));
 });

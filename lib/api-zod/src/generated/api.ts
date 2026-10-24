@@ -325,6 +325,35 @@ export const CreateTaskResponse = zod.object({
 
 
 /**
+ * @summary Get discussion and activity history for a task
+ */
+export const GetTaskDiscussionParams = zod.object({
+  "taskId": zod.coerce.number().int()
+})
+
+export const GetTaskDiscussionResponse = zod.object({
+  "comments": zod.array(zod.object({
+  "id": zod.number().int(),
+  "taskId": zod.number().int(),
+  "authorId": zod.number().int().nullable(),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "activities": zod.array(zod.object({
+  "id": zod.number().int(),
+  "taskId": zod.number().int(),
+  "actorId": zod.number().int().nullable(),
+  "actorName": zod.string(),
+  "eventType": zod.enum(['created', 'status_changed', 'due_date_changed', 'assignee_changed']),
+  "oldValue": zod.string().nullable(),
+  "newValue": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
  * @summary Update task progress or assignment
  */
 export const UpdateTaskParams = zod.object({
@@ -357,6 +386,31 @@ export const UpdateTaskResponse = zod.object({
   "assigneeName": zod.string().nullable(),
   "dueDate": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Add a comment to a task
+ */
+export const CreateTaskCommentParams = zod.object({
+  "taskId": zod.coerce.number().int()
+})
+
+export const createTaskCommentBodyBodyMax = 4000;
+
+
+
+export const CreateTaskCommentBody = zod.object({
+  "body": zod.string().min(1).max(createTaskCommentBodyBodyMax)
+})
+
+export const CreateTaskCommentResponse = zod.object({
+  "id": zod.number().int(),
+  "taskId": zod.number().int(),
+  "authorId": zod.number().int().nullable(),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.coerce.date()
 })
 
 

@@ -116,6 +116,56 @@ export const tasksTable = pgTable(
   ],
 );
 
+export const taskCommentsTable = pgTable(
+  "office_task_comments",
+  {
+    id: serial("id").primaryKey(),
+    taskId: integer("task_id")
+      .notNull()
+      .references(() => tasksTable.id, { onDelete: "cascade" }),
+    authorId: integer("author_id").references(() => officeMembersTable.id, {
+      onDelete: "set null",
+    }),
+    authorName: text("author_name").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("office_task_comments_task_created_idx").on(
+      table.taskId,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const taskActivityTable = pgTable(
+  "office_task_activity",
+  {
+    id: serial("id").primaryKey(),
+    taskId: integer("task_id")
+      .notNull()
+      .references(() => tasksTable.id, { onDelete: "cascade" }),
+    actorId: integer("actor_id").references(() => officeMembersTable.id, {
+      onDelete: "set null",
+    }),
+    actorName: text("actor_name").notNull(),
+    eventType: text("event_type").notNull(),
+    oldValue: text("old_value"),
+    newValue: text("new_value"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("office_task_activity_task_created_idx").on(
+      table.taskId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const insertOfficeMemberSchema = createInsertSchema(officeMembersTable).omit({
   id: true,
   createdAt: true,
@@ -130,6 +180,16 @@ export const insertTaskSchema = createInsertSchema(tasksTable).omit({
   createdAt: true,
   updatedAt: true,
 });
+export const insertTaskCommentSchema = createInsertSchema(taskCommentsTable).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertTaskActivitySchema = createInsertSchema(taskActivityTable).omit({
+  id: true,
+  createdAt: true,
+});
 export type OfficeMember = z.infer<typeof insertOfficeMemberSchema>;
 export type Project = typeof projectsTable.$inferSelect;
 export type Task = typeof tasksTable.$inferSelect;
+export type TaskComment = typeof taskCommentsTable.$inferSelect;
+export type TaskActivity = typeof taskActivityTable.$inferSelect;

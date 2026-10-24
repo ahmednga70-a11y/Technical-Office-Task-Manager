@@ -32,6 +32,9 @@ import type {
   ProjectInput,
   ProjectUpdate,
   Task,
+  TaskComment,
+  TaskCommentInput,
+  TaskDiscussion,
   TaskInput,
   TaskUpdate
 } from './api.schemas';
@@ -1199,6 +1202,83 @@ export const useCreateTask = <TError = ErrorType<unknown>,
       return useMutation(getCreateTaskMutationOptions(options));
     }
 
+export const getGetTaskDiscussionUrl = (taskId: number,) => {
+
+
+
+
+  return `/api/tasks/${taskId}`
+}
+
+/**
+ * @summary Get discussion and activity history for a task
+ */
+export const getTaskDiscussion = async (taskId: number, options?: Parameters<typeof customFetch>[1]): Promise<TaskDiscussion> => {
+
+  return customFetch<TaskDiscussion>(getGetTaskDiscussionUrl(taskId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTaskDiscussionQueryKey = (taskId: number,) => {
+    return [
+    `/api/tasks/${taskId}`
+    ] as const;
+    }
+
+
+export const getGetTaskDiscussionQueryOptions = <TData = Awaited<ReturnType<typeof getTaskDiscussion>>, TError = ErrorType<void>>(taskId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaskDiscussion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTaskDiscussionQueryKey(taskId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTaskDiscussion>>> = ({ signal }) => getTaskDiscussion(taskId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: taskId !== null && taskId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTaskDiscussion>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTaskDiscussionQueryResult = NonNullable<Awaited<ReturnType<typeof getTaskDiscussion>>>
+export type GetTaskDiscussionQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get discussion and activity history for a task
+ */
+
+export function useGetTaskDiscussion<TData = Awaited<ReturnType<typeof getTaskDiscussion>>, TError = ErrorType<void>>(
+ taskId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaskDiscussion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTaskDiscussionQueryOptions(taskId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateTaskUrl = (taskId: number,) => {
 
 
@@ -1288,12 +1368,101 @@ export const useUpdateTask = <TError = ErrorType<void>,
       return useMutation(getUpdateTaskMutationOptions(options));
     }
 
+export const getCreateTaskCommentUrl = (taskId: number,) => {
+
+
+
+
+  return `/api/tasks/${taskId}/comments`
+}
+
+/**
+ * @summary Add a comment to a task
+ */
+export const createTaskComment = async (taskId: number,
+    taskCommentInput: TaskCommentInput, options?: Parameters<typeof customFetch>[1]): Promise<TaskComment> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TaskComment>(getCreateTaskCommentUrl(taskId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(taskCommentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTaskCommentMutationKey = () => ['createTaskComment'] as const;
+
+export const getCreateTaskCommentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTaskComment>>, TError,CreateTaskCommentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTaskComment>>, TError,CreateTaskCommentMutationVariables, TContext> => {
+
+const mutationKey = getCreateTaskCommentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTaskComment>>, CreateTaskCommentMutationVariables> = (props) => {
+          const {taskId,data} = props ?? {};
+
+          return  createTaskComment(taskId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTaskCommentMutationResult = NonNullable<Awaited<ReturnType<typeof createTaskComment>>>
+    export type CreateTaskCommentMutationBody = BodyType<TaskCommentInput>
+    export type CreateTaskCommentMutationError = ErrorType<void>
+    export type CreateTaskCommentMutationVariables = {taskId: number;data: BodyType<TaskCommentInput>}
+
+    /**
+ * @summary Add a comment to a task
+ */
+export const useCreateTaskComment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTaskComment>>, TError,CreateTaskCommentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTaskComment>>,
+        TError,
+        CreateTaskCommentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateTaskCommentMutationOptions(options));
+    }
+
 export const getDeleteTaskUrl = (taskId: number,) => {
 
 
 
 
-  return `/api/tasks/${taskId}`
+  return `/api/tasks/${taskId}/comments`
 }
 
 /**

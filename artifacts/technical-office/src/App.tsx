@@ -5,12 +5,12 @@ import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
   Activity, ArrowLeft, Bell, BriefcaseBusiness, CalendarDays, CheckCheck, CircleAlert,
-  ClipboardList, Clock3, FolderKanban, LayoutDashboard, LogOut, MapPin, Plus, Search,
+  ClipboardList, Clock3, FolderKanban, LayoutDashboard, LogOut, MapPin, MessageCircle, Plus, Search,
   SlidersHorizontal, X, Pencil, Trash2, ListTodo, ArrowUpRight, LoaderCircle, RefreshCw,
 } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import {
-  getGetOfficeDashboardQueryKey, getGetProjectQueryKey, getListOfficeMembersQueryKey,
+  getGetOfficeDashboardQueryKey, getGetProjectQueryKey, getGetTaskDiscussionQueryKey, getListOfficeMembersQueryKey,
   getListOfficeInvitationsQueryKey, getListProjectsQueryKey, getListTasksQueryKey,
   useCreateOfficeInvitation, useCreateProject, useCreateTask,
   useDeleteProject, useDeleteTask, useGetOfficeDashboard, useGetProject,
@@ -19,6 +19,7 @@ import {
   useUpdateProject, useUpdateTask,
 } from '@workspace/api-client-react';
 import type { OfficeInvitation, OfficeMember, Project, ProjectInput, Task, TaskInput, TaskUpdate } from '@workspace/api-client-react';
+import TaskDiscussionDialog from '@/components/TaskDiscussionDialog';
 import NotFound from '@/pages/not-found';
 import '@/index.css';
 
@@ -277,16 +278,17 @@ function EmptyState({ title, body, action }: { title: string; body: string; acti
 function StatusBadge({ status }: { status: string }) {
   return <span className={`badge ${statusTone[status] || 'bg-[#f1eee5] text-[#696b5e]'}`} data-testid={`status-badge-${status}`}>{arabicStatus[status] || status}</span>;
 }
-function TaskRow({ task, onEdit, onDelete }: { task: Task; onEdit?: (task: Task) => void; onDelete?: (task: Task) => void }) {
+function TaskRow({ task, onEdit, onDelete, onDiscussion }: { task: Task; onEdit?: (task: Task) => void; onDelete?: (task: Task) => void; onDiscussion?: (task: Task) => void }) {
   const member=useContext(OfficeMemberContext);
   const canEdit=member?.role==='manager'||task.assigneeId===member?.id;
   const canDelete=member?.role==='manager';
+  const canDiscuss=member?.role==='manager'||task.assigneeId===member?.id;
   return <div className="table-row grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] items-center gap-4 py-4 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-3" data-testid={`row-task-${task.id}`}>
     <div className="min-w-0"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-bold text-[#304743]">{task.title}</h3>{task.priority==='urgent'&&<CircleAlert size={14} className="shrink-0 text-[#c05a45]"/>}</div><p className="mt-1 truncate text-xs text-[#8a938c]">{task.projectName} <span className="mx-1">·</span>{arabicCategory[task.category]||task.category}</p></div>
     <div className="hidden items-center gap-2 text-xs text-[#6e7a74] md:flex"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#e8ebe2] text-[10px] font-bold text-[#4b665d]">{initials(task.assigneeName)}</span>{task.assigneeName||'غير معيّنة'}</div>
     <div className="hidden md:block"><StatusBadge status={task.status}/></div>
     <span className={`hidden text-xs font-semibold md:block ${new Date(task.dueDate)<new Date()&&task.status!=='done'?'text-[#bd5d49]':'text-[#77827c]'}`}><CalendarDays size={13} className="ml-1 inline"/>{fmtDate(task.dueDate)}</span>
-    <div className="flex justify-end gap-1">{onEdit&&canEdit&&<button className="btn btn-ghost !p-2" title="تعديل المهمة" onClick={()=>onEdit(task)} data-testid={`button-edit-task-${task.id}`}><Pencil size={15}/></button>}{onDelete&&canDelete&&<button className="btn btn-ghost !p-2 hover:text-[#b84c40]" title="حذف المهمة" onClick={()=>onDelete(task)} data-testid={`button-delete-task-${task.id}`}><Trash2 size={15}/></button>}</div>
+    <div className="flex justify-end gap-1">{onDiscussion&&canDiscuss&&<button type="button" className="btn btn-ghost !p-2" title="نقاش وسجل المهمة" aria-label={`فتح نقاش المهمة ${task.title}`} onClick={()=>onDiscussion(task)} data-testid={`button-discussion-task-${task.id}`}><MessageCircle size={15}/></button>}{onEdit&&canEdit&&<button className="btn btn-ghost !p-2" title="تعديل المهمة" onClick={()=>onEdit(task)} data-testid={`button-edit-task-${task.id}`}><Pencil size={15}/></button>}{onDelete&&canDelete&&<button className="btn btn-ghost !p-2 hover:text-[#b84c40]" title="حذف المهمة" onClick={()=>onDelete(task)} data-testid={`button-delete-task-${task.id}`}><Trash2 size={15}/></button>}</div>
     <div className="col-span-2 flex items-center gap-2 md:hidden"><StatusBadge status={task.status}/><span className="text-[11px] text-[#77827c]">{task.assigneeName||'غير معيّنة'} · {fmtDate(task.dueDate)}</span></div>
   </div>;
 }
@@ -365,7 +367,7 @@ function ProjectDetailsPage() {
   const [,setLocation]=useLocation();
   const client=useQueryClient();const query=useGetProject(id,{query:{queryKey:getGetProjectQueryKey(id)}});
   const update=useUpdateProject();const remove=useDeleteProject();const createTask=useCreateTask();const updateTask=useUpdateTask();const deleteTask=useDeleteTask();
-  const [edit,setEdit]=useState(false);const [taskOpen,setTaskOpen]=useState(false);const [editingTask,setEditingTask]=useState<Task|undefined>();
+  const [edit,setEdit]=useState(false);const [taskOpen,setTaskOpen]=useState(false);const [editingTask,setEditingTask]=useState<Task|undefined>();const [discussionTask,setDiscussionTask]=useState<Task|undefined>();
   if(!Number.isFinite(id)) return <main className="page-content"><EmptyState title="رقم المشروع مش صحيح" body="ارجع لقائمة المشاريع واختار مشروع تاني."/></main>;
   if(query.isLoading)return <main className="page-content"><div className="skeleton mb-6 h-12 w-72"/><SkeletonRows/></main>;
   if(query.isError||!query.data)return <main className="page-content"><ErrorState retry={()=>query.refetch()}/></main>;
@@ -375,7 +377,7 @@ function ProjectDetailsPage() {
   const refreshTasks=()=>{client.invalidateQueries({queryKey:getGetProjectQueryKey(id)});client.invalidateQueries({queryKey:getListTasksQueryKey()});client.invalidateQueries({queryKey:getGetOfficeDashboardQueryKey()});client.invalidateQueries({queryKey:getListProjectsQueryKey()});};
   const submitTask=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{
     const options={onSuccess:()=>{refreshTasks();setTaskOpen(false);setEditingTask(undefined);}};
-    if('taskId' in value) updateTask.mutate({taskId:value.taskId,data:value.data},options);
+    if('taskId' in value) updateTask.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{options.onSuccess();client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});}});
     else createTask.mutate({data:value},options);
   };
   const removeTask=(task:Task)=>{if(window.confirm(`حذف المهمة «${task.title}»؟`))deleteTask.mutate({taskId:task.id},{onSuccess:refreshTasks});};
@@ -384,10 +386,11 @@ function ProjectDetailsPage() {
      <div className="panel overflow-hidden"><div className="relative bg-[#285e59] p-6 text-[#f8f5e9] md:p-9"><div className="absolute -left-12 -top-20 h-56 w-56 rounded-full border border-white/10"/><div className="relative flex flex-wrap items-start justify-between gap-5"><div><div className="mb-3 flex items-center gap-2"><StatusBadge status={project.status}/><span className="text-xs text-[#bfd0c8]">{project.client||'بدون عميل'}</span></div><h1 className="text-3xl font-extrabold tracking-tight md:text-4xl" data-testid="text-project-name">{project.name}</h1><p className="mt-3 flex items-center gap-2 text-sm text-[#c2d1ca]"><MapPin size={15}/>{project.location||'الموقع غير محدد'}</p></div>{canManage&&<div className="flex gap-2"><button className="btn bg-white/10 text-white hover:bg-white/20" onClick={()=>setEdit(true)}><Pencil size={15}/> تعديل</button><button className="btn bg-white/10 text-white hover:bg-[#a64d40]" onClick={onDelete} disabled={remove.isPending}><Trash2 size={15}/> حذف</button></div>}</div><div className="relative mt-8 grid grid-cols-2 gap-4 border-t border-white/15 pt-6 md:grid-cols-4"><div><p className="text-[11px] text-[#b7c9c0]">نسبة الإنجاز</p><strong className="mt-1 block font-mono text-2xl">{project.progress}%</strong></div><div><p className="text-[11px] text-[#b7c9c0]">المهام المكتملة</p><strong className="mt-1 block font-mono text-2xl">{project.completedTaskCount} <span className="text-sm text-[#b7c9c0]">/ {project.taskCount}</span></strong></div><div><p className="text-[11px] text-[#b7c9c0]">بداية المشروع</p><strong className="mt-2 block text-sm">{fmtDate(project.startDate)}</strong></div><div><p className="text-[11px] text-[#b7c9c0]">موعد التسليم</p><strong className="mt-2 block text-sm">{fmtDate(project.endDate)}</strong></div></div></div>
        <div className="p-6 md:p-8"><div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-xl font-extrabold text-[#304743]">مهام المشروع</h2><p className="mt-1 text-xs text-[#87918b]">{project.tasks?.length||0} مهمة مرتبطة بالمشروع</p></div>{canManage&&<button className="btn btn-primary" onClick={()=>setTaskOpen(true)}><Plus size={16}/> أضف مهمة</button>}</div>
         {project.description&&<p className="mt-5 max-w-3xl text-sm leading-7 text-[#74817a]">{project.description}</p>}
-         {project.tasks?.length?<div className="mt-6">{project.tasks.map(task=><TaskRow task={task} key={task.id} onEdit={task=>{setEditingTask(task);setTaskOpen(true);}} onDelete={removeTask}/>)}</div>:<div className="mt-6"><EmptyState title="المشروع لسه من غير مهام" body="سجّل أول مهمة وحدد المسؤول وموعد التسليم عشان يبدأ الشغل." action={canManage&&<button className="btn btn-primary" onClick={()=>setTaskOpen(true)}><Plus size={15}/> أضف مهمة</button>}/></div>}
+          {project.tasks?.length?<div className="mt-6">{project.tasks.map(task=><TaskRow task={task} key={task.id} onEdit={task=>{setEditingTask(task);setTaskOpen(true);}} onDelete={removeTask} onDiscussion={setDiscussionTask}/>)}</div>:<div className="mt-6"><EmptyState title="المشروع لسه من غير مهام" body="سجّل أول مهمة وحدد المسؤول وموعد التسليم عشان يبدأ الشغل." action={canManage&&<button className="btn btn-primary" onClick={()=>setTaskOpen(true)}><Plus size={15}/> أضف مهمة</button>}/></div>}
       </div></div>
      {edit&&canManage&&<ProjectForm initial={project} onClose={()=>setEdit(false)} onSubmit={onUpdate} busy={update.isPending}/>}
      {taskOpen&&(canManage||editingTask?.assigneeId===member?.id)&&<TaskForm projects={[project]} initialProjectId={id} initial={editingTask} onClose={()=>{setTaskOpen(false);setEditingTask(undefined);}} onSubmit={submitTask} busy={createTask.isPending||updateTask.isPending}/>}
+      {discussionTask&&<TaskDiscussionDialog task={discussionTask} onClose={()=>setDiscussionTask(undefined)}/>}
   </main>;
 }
 function ArrowRightIcon(){return <ArrowUpRight className="rotate-[-135deg]" size={14}/>}
@@ -417,15 +420,16 @@ function TaskForm({projects,initial,initialProjectId,onClose,onSubmit,busy}:{pro
 
 function TasksPage() {
   const client=useQueryClient();const member=useContext(OfficeMemberContext);const canManage=member?.role==='manager';const query=useListTasks();const projectsQuery=useListProjects();const create=useCreateTask();const update=useUpdateTask();const remove=useDeleteTask();
-  const [search,setSearch]=useState('');const [status,setStatus]=useState('all');const [project,setProject]=useState('all');const [modal,setModal]=useState(false);const [editing,setEditing]=useState<Task|undefined>();
+  const [search,setSearch]=useState('');const [status,setStatus]=useState('all');const [project,setProject]=useState('all');const [modal,setModal]=useState(false);const [editing,setEditing]=useState<Task|undefined>();const [discussionTask,setDiscussionTask]=useState<Task|undefined>();
   const rows=useMemo(()=>query.data?.filter(task=>(status==='all'||task.status===status)&&(project==='all'||task.projectId===Number(project))&&(`${task.title} ${task.projectName} ${task.assigneeName||''}`.toLowerCase().includes(search.toLowerCase())))||[],[query.data,status,project,search]);
   const done=()=>{client.invalidateQueries({queryKey:getListTasksQueryKey()});client.invalidateQueries({queryKey:getGetOfficeDashboardQueryKey()});client.invalidateQueries({queryKey:getListProjectsQueryKey()});};
-  const onSubmit=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{if('taskId'in value)update.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{done();setModal(false);setEditing(undefined);}});else create.mutate({data:value},{onSuccess:()=>{done();setModal(false);}});};
+  const onSubmit=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{if('taskId'in value)update.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{done();setModal(false);setEditing(undefined);client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});}});else create.mutate({data:value},{onSuccess:()=>{done();setModal(false);}});};
   const onDelete=(task:Task)=>{if(window.confirm(`حذف المهمة «${task.title}»؟`))remove.mutate({taskId:task.id},{onSuccess:done});};
   return <main className="page-content"><PageTitle eyebrow="التكليفات والمتابعة" title="المهام" description="فلتر شغل الفريق، حدّث الحالات، وخلي كل موعد ظاهر." action={canManage&&<button className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50" disabled={!projectsQuery.data?.length} onClick={()=>{setEditing(undefined);setModal(true);}} data-testid="button-create-task"><Plus size={17}/> مهمة جديدة</button>}/>
     <div className="panel mb-5 flex flex-wrap gap-3 p-4"><div className="relative min-w-[200px] flex-1"><Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#89928b]"/><input className="field pr-10" placeholder="ابحث عن مهمة أو مشروع أو مسؤول..." value={search} onChange={e=>setSearch(e.target.value)} data-testid="input-search-tasks"/></div><select className="field w-auto min-w-[145px]" value={status} onChange={e=>setStatus(e.target.value)} data-testid="select-filter-status"><option value="all">كل الحالات</option>{Object.entries(arabicStatus).filter(([key])=>['todo','in_progress','review','done'].includes(key)).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><select className="field w-auto min-w-[150px]" value={project} onChange={e=>setProject(e.target.value)} data-testid="select-filter-project"><option value="all">كل المشاريع</option>{projectsQuery.data?.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></div>
-     {query.isLoading?<SkeletonRows/>:query.isError?<ErrorState retry={()=>query.refetch()}/>:rows.length?<section className="panel px-5 py-2 md:px-7"><div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] gap-4 border-b border-[#e6e3d9] py-3 text-[10px] font-bold text-[#929991] max-md:hidden"><span>المهمة / المشروع</span><span>المسؤول</span><span>الحالة</span><span>التسليم</span><span/></div>{rows.map(task=><TaskRow key={task.id} task={task} onEdit={t=>{setEditing(t);setModal(true);}} onDelete={onDelete}/>)}</section>:<EmptyState title={search||status!=='all'||project!=='all'?'مفيش مهام بالاختيارات دي':'لسه مفيش مهام'} body="ابدأ بتكليف جديد، أو غيّر الفلاتر عشان تظهر نتائج أكتر." action={canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}><Plus size={15}/> مهمة جديدة</button>}/>}
+     {query.isLoading?<SkeletonRows/>:query.isError?<ErrorState retry={()=>query.refetch()}/>:rows.length?<section className="panel px-5 py-2 md:px-7"><div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] gap-4 border-b border-[#e6e3d9] py-3 text-[10px] font-bold text-[#929991] max-md:hidden"><span>المهمة / المشروع</span><span>المسؤول</span><span>الحالة</span><span>التسليم</span><span/></div>{rows.map(task=><TaskRow key={task.id} task={task} onEdit={t=>{setEditing(t);setModal(true);}} onDelete={onDelete} onDiscussion={setDiscussionTask}/>)}</section>:<EmptyState title={search||status!=='all'||project!=='all'?'مفيش مهام بالاختيارات دي':'لسه مفيش مهام'} body="ابدأ بتكليف جديد، أو غيّر الفلاتر عشان تظهر نتائج أكتر." action={canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}><Plus size={15}/> مهمة جديدة</button>}/>}
     {modal&&(canManage||editing?.assigneeId===member?.id)&&<TaskForm projects={projectsQuery.data||[]} initial={editing} onClose={()=>{setModal(false);setEditing(undefined);}} onSubmit={onSubmit} busy={create.isPending||update.isPending}/>}
+     {discussionTask&&<TaskDiscussionDialog task={discussionTask} onClose={()=>setDiscussionTask(undefined)}/>}
   </main>;
 }
 
