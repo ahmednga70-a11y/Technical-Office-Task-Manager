@@ -53,6 +53,45 @@ export const ListOfficeMembersResponse = zod.array(ListOfficeMembersResponseItem
 
 
 /**
+ * @summary List workspace invitations
+ */
+export const ListOfficeInvitationsResponseItem = zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "status": zod.enum(['pending', 'accepted', 'expired', 'revoked']),
+  "createdAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+export const ListOfficeInvitationsResponse = zod.array(ListOfficeInvitationsResponseItem)
+
+
+/**
+ * @summary Invite an engineer by email
+ */
+export const CreateOfficeInvitationBody = zod.object({
+  "email": zod.string().email()
+})
+
+export const CreateOfficeInvitationResponse = zod.object({
+  "id": zod.string(),
+  "email": zod.string().email(),
+  "status": zod.enum(['pending', 'accepted', 'expired', 'revoked']),
+  "createdAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Revoke a pending workspace invitation
+ */
+export const RevokeOfficeInvitationParams = zod.object({
+  "invitationId": zod.coerce.string()
+})
+
+export const RevokeOfficeInvitationResponse = zod.void()
+
+
+/**
  * @summary Get project and task totals for the dashboard
  */
 export const GetOfficeDashboardResponse = zod.object({

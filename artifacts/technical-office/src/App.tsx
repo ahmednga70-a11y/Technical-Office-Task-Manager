@@ -11,17 +11,21 @@ import {
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import {
   getGetOfficeDashboardQueryKey, getGetProjectQueryKey, getListOfficeMembersQueryKey,
-  getListProjectsQueryKey, getListTasksQueryKey, useCreateProject, useCreateTask,
+  getListOfficeInvitationsQueryKey, getListProjectsQueryKey, getListTasksQueryKey,
+  useCreateOfficeInvitation, useCreateProject, useCreateTask,
   useDeleteProject, useDeleteTask, useGetOfficeDashboard, useGetProject,
-  useListOfficeMembers, useListProjects, useListTasks, useSyncOfficeProfile,
+  useListOfficeInvitations, useListOfficeMembers, useListProjects, useListTasks,
+  useRevokeOfficeInvitation, useSyncOfficeProfile,
   useUpdateProject, useUpdateTask,
 } from '@workspace/api-client-react';
-import type { OfficeMember, Project, ProjectInput, Task, TaskInput, TaskUpdate } from '@workspace/api-client-react';
+import type { OfficeInvitation, OfficeMember, Project, ProjectInput, Task, TaskInput, TaskUpdate } from '@workspace/api-client-react';
 import NotFound from '@/pages/not-found';
 import '@/index.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 20_000, retry: 1 } } });
 const OfficeMemberContext = createContext<OfficeMember | null>(null);
+type OfficeAccessState = 'checking' | 'member' | 'blocked' | 'signed-out';
+const OfficeAccessContext = createContext<OfficeAccessState>('checking');
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
@@ -105,18 +109,26 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
-function ProfileSync() {
+function ProfileSync({children}:{children:ReactNode}) {
   const { user, isLoaded, isSignedIn } = useUser();
   const sync = useSyncOfficeProfile();
   const client = useQueryClient();
+  const [access,setAccess]=useState<OfficeAccessState>('checking');
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user) return;
+    if (!isLoaded) { setAccess('checking'); return; }
+    if (!isSignedIn || !user) { setAccess('signed-out'); return; }
     const email = user.primaryEmailAddress?.emailAddress || user.emailAddresses[0]?.emailAddress || '';
-    if (email) sync.mutate({ data: { name: user.fullName || user.firstName || email.split('@')[0], email } }, {
-      onSuccess: () => client.invalidateQueries({ queryKey: getListOfficeMembersQueryKey() }),
+    if (!email) { setAccess('blocked'); return; }
+    setAccess('checking');
+    sync.mutate({ data: { name: user.fullName || user.firstName || email.split('@')[0], email } }, {
+      onSuccess: () => {
+        setAccess('member');
+        client.invalidateQueries({ queryKey: getListOfficeMembersQueryKey() });
+      },
+      onError: () => setAccess('blocked'),
     });
   }, [isLoaded, isSignedIn, user?.id]);
-  return null;
+  return <OfficeAccessContext.Provider value={access}>{children}</OfficeAccessContext.Provider>;
 }
 
 function SignInPage() {
@@ -219,6 +231,7 @@ function NavShell({ children }: { children: ReactNode }) {
     { href: '/dashboard', label: 'لوحة المتابعة', icon: LayoutDashboard },
     { href: '/projects', label: 'المشاريع', icon: BriefcaseBusiness },
     { href: '/tasks', label: 'المهام', icon: ClipboardList },
+    ...(member?.role === 'manager' ? [{ href: '/team', label: 'الفريق', icon: Activity }] : []),
   ];
   const name = user?.fullName || user?.firstName || 'عضو الفريق';
   return <OfficeMemberContext.Provider value={member}><div className="app-shell" dir="rtl">
@@ -238,7 +251,7 @@ function NavShell({ children }: { children: ReactNode }) {
     </aside>
     <div className="main-area">
       <header className="topbar">
-        <div className="flex items-center gap-2 text-xs text-[#87918b]"><span className="text-[#365e58]">مساحة العمل</span><span>/</span><span className="text-[#4f625d]">{location.startsWith('/projects')?'المشاريع':location==='/tasks'?'المهام':'لوحة المتابعة'}</span></div>
+         <div className="flex items-center gap-2 text-xs text-[#87918b]"><span className="text-[#365e58]">مساحة العمل</span><span>/</span><span className="text-[#4f625d]">{location.startsWith('/projects')?'المشاريع':location==='/tasks'?'المهام':location==='/team'?'الفريق':'لوحة المتابعة'}</span></div>
         <div className="flex items-center gap-3">
           <span className="hidden text-xs text-[#77827c] sm:block">{new Intl.DateTimeFormat('ar-EG',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}</span>
           <span className="grid h-9 w-9 place-items-center rounded-xl border border-[#e0ded4] bg-[#fbfaf5] text-[#52756d]"><Bell size={17}/></span>
@@ -416,8 +429,73 @@ function TasksPage() {
   </main>;
 }
 
+function TeamPage() {
+  const client=useQueryClient();
+  const members=useListOfficeMembers();
+  const invitations=useListOfficeInvitations();
+  const create=useCreateOfficeInvitation();
+  const revoke=useRevokeOfficeInvitation();
+  const [email,setEmail]=useState('');
+  const [message,setMessage]=useState('');
+
+  const onInvite=(event:FormEvent)=>{
+    event.preventDefault();
+    setMessage('');
+    create.mutate({data:{email:email.trim()}},{
+      onSuccess:(invitation:OfficeInvitation)=>{
+        setMessage(`تم إرسال دعوة إلى ${invitation.email}.`);
+        setEmail('');
+        client.invalidateQueries({queryKey:getListOfficeInvitationsQueryKey()});
+      },
+      onError:()=>setMessage('تعذر إرسال الدعوة. تأكد أن البريد غير مضاف للفريق وأنه لا توجد دعوة معلقة له.'),
+    });
+  };
+  const onRevoke=(invitation:OfficeInvitation)=>{
+    if(!window.confirm(`إلغاء الدعوة المرسلة إلى ${invitation.email}؟`)) return;
+    revoke.mutate({invitationId:invitation.id},{
+      onSuccess:()=>{
+        setMessage(`تم إلغاء دعوة ${invitation.email}.`);
+        client.invalidateQueries({queryKey:getListOfficeInvitationsQueryKey()});
+      },
+      onError:()=>setMessage('لم نتمكن من إلغاء الدعوة. قد تكون قُبلت بالفعل أو انتهت صلاحيتها.'),
+    });
+  };
+
+  return <main className="page-content">
+    <PageTitle eyebrow="إدارة الوصول" title="فريق المكتب" description="أرسل دعوة لكل مهندس يحتاج دخول مساحة المكتب، وتابع حالة الدعوات."/>
+    <section className="panel p-5 md:p-7">
+      <div className="mb-5"><h2 className="text-lg font-extrabold text-[#304743]">دعوة مهندس</h2><p className="mt-1 text-sm text-[#87918b]">هنبعت رابط دعوة إلى البريد، ويُستخدم مرة واحدة للانضمام للمكتب.</p></div>
+      <form onSubmit={onInvite} className="flex flex-wrap gap-3">
+        <input className="field min-w-[220px] flex-1 text-left" type="email" dir="ltr" required maxLength={254} placeholder="engineer@company.com" value={email} onChange={event=>setEmail(event.target.value)} data-testid="input-invitation-email"/>
+        <button className="btn btn-primary disabled:opacity-50" disabled={create.isPending} data-testid="button-send-invitation">{create.isPending?<LoaderCircle size={16} className="animate-spin"/>:<Plus size={16}/>} إرسال الدعوة</button>
+      </form>
+      {message&&<p className="mt-3 text-sm font-semibold text-[#386d60]" role="status">{message}</p>}
+    </section>
+
+    <section className="panel mt-5 p-5 md:p-7">
+      <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-extrabold text-[#304743]">أعضاء المكتب</h2><p className="mt-1 text-xs text-[#87918b]">الأشخاص الذين انضموا إلى مساحة العمل.</p></div><span className="rounded-full bg-[#e9efe8] px-3 py-1 text-xs font-bold text-[#386d60]">{members.data?.length||0}</span></div>
+      {members.isLoading?<SkeletonRows count={2}/>:members.isError?<ErrorState retry={()=>members.refetch()}/>:members.data?.length?<div className="divide-y divide-[#ece9df]">{members.data.map(member=><div key={member.id} className="flex flex-wrap items-center gap-3 py-3" data-testid={`row-office-member-${member.id}`}><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e4efeb] text-sm font-extrabold text-[#386d60]">{initials(member.name)}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-[#304743]">{member.name}</p><p className="mt-1 truncate text-xs text-[#87918b]" dir="ltr">{member.email}</p></div><span className="badge">{member.role==='manager'?'مدير المكتب':'مهندس'}</span></div>)}</div>:<p className="py-6 text-center text-sm text-[#87918b]">لسه مفيش أعضاء.</p>}
+    </section>
+
+    <section className="panel mt-5 p-5 md:p-7">
+      <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-extrabold text-[#304743]">الدعوات</h2><p className="mt-1 text-xs text-[#87918b]">الدعوة تنتهي بعد 30 يومًا إذا لم تُقبل.</p></div><button className="btn btn-ghost !p-2" onClick={()=>invitations.refetch()} aria-label="تحديث الدعوات"><RefreshCw size={15}/></button></div>
+      {invitations.isLoading?<SkeletonRows count={2}/>:invitations.isError?<ErrorState retry={()=>invitations.refetch()}/>:invitations.data?.length?<div className="divide-y divide-[#ece9df]">{invitations.data.map(invitation=><div key={invitation.id} className="flex flex-wrap items-center gap-3 py-3" data-testid={`row-office-invitation-${invitation.id}`}><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f5eadc] text-[#a56d36]"><Activity size={16}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-[#304743]" dir="ltr">{invitation.email}</p><p className="mt-1 text-xs text-[#87918b]">{invitation.status==='pending'?'بانتظار القبول':invitation.status==='accepted'?'تم القبول':invitation.status==='expired'?'انتهت الصلاحية':'ملغاة'} · تنتهي {fmtDate(invitation.expiresAt)}</p></div>{invitation.status==='pending'&&<button className="btn btn-ghost !p-2 hover:text-[#b84c40]" title="إلغاء الدعوة" onClick={()=>onRevoke(invitation)} disabled={revoke.isPending} data-testid={`button-revoke-invitation-${invitation.id}`}><X size={16}/></button>}</div>)}</div>:<p className="py-6 text-center text-sm text-[#87918b]">مفيش دعوات مرسلة.</p>}
+    </section>
+  </main>;
+}
+
 function Protected({children}:{children:ReactNode}) {
-  return <><Show when="signed-in">{children}</Show><Show when="signed-out"><Redirect to="/"/></Show></>;
+  const access=useContext(OfficeAccessContext);
+  return <><Show when="signed-in">{access==='member'?children:access==='blocked'?<InvitationRequiredPage/>:<div className="grid min-h-[70vh] place-items-center"><LoaderCircle size={28} className="animate-spin text-[#285e59]"/></div>}</Show><Show when="signed-out"><Redirect to="/"/></Show></>;
+}
+function InvitationRequiredPage() {
+  const {signOut}=useClerk();
+  return <main className="grid min-h-[100dvh] place-items-center bg-[#f7f5ed] px-5 py-12" dir="rtl"><section className="panel w-full max-w-lg p-8 text-center"><div className="mx-auto flex w-fit"><Brand/></div><div className="mx-auto mt-8 grid h-14 w-14 place-items-center rounded-2xl bg-[#f8e9df] text-[#a64d40]"><CircleAlert size={25}/></div><h1 className="mt-5 text-2xl font-extrabold text-[#203b39]">الدخول بدعوة فقط</h1><p className="mt-3 text-sm leading-7 text-[#71807a]">الحساب مش مرتبط بمساحة المكتب. اطلب من المدير يرسل لك دعوة على بريدك، وبعدها افتح رابط الدعوة اللي هيوصلك.</p><div className="mt-6 flex flex-wrap justify-center gap-2"><button className="btn btn-primary" onClick={()=>window.location.reload()}>إعادة التحقق</button><button className="btn btn-soft" onClick={()=>signOut({redirectUrl:basePath||'/'})}>تسجيل الخروج</button><Link href="/" className="btn btn-soft">الصفحة الرئيسية</Link></div></section></main>;
+}
+function ManagerOnly({children}:{children:ReactNode}) {
+  const member=useContext(OfficeMemberContext);
+  if(!member) return <div className="grid min-h-[60vh] place-items-center"><LoaderCircle size={25} className="animate-spin text-[#285e59]"/></div>;
+  return member.role==='manager'?children:<Redirect to="/dashboard"/>;
 }
 function HomeRedirect() {
   return <><Show when="signed-in"><Redirect to="/dashboard"/></Show><Show when="signed-out"><HomePage/></Show></>;
@@ -427,8 +505,8 @@ function ClerkProviderWithRoutes() {
   return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} appearance={clerkAppearance} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}
     localization={{signIn:{start:{title:'أهلاً بعودتك',subtitle:'سجّل دخولك لمساحة المكتب الفني'}},signUp:{start:{title:'أنشئ حسابك',subtitle:'ابدأ تنظيم شغل فريقك الهندسي'}}}}
     routerPush={to=>setLocation(stripBase(to))} routerReplace={to=>setLocation(stripBase(to),{replace:true})}>
-    <QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator/><ProfileSync/>
-      <Switch>
+     <QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator/><ProfileSync>
+       <Switch>
         <Route path="/" component={HomeRedirect}/>
         <Route path="/sign-in/*?" component={SignInPage}/>
         <Route path="/sign-up/*?" component={SignUpPage}/>
@@ -436,8 +514,10 @@ function ClerkProviderWithRoutes() {
         <Route path="/projects"><Protected><NavShell><ProjectsPage/></NavShell></Protected></Route>
         <Route path="/projects/:projectId"><Protected><NavShell><ProjectDetailsPage/></NavShell></Protected></Route>
         <Route path="/tasks"><Protected><NavShell><TasksPage/></NavShell></Protected></Route>
+         <Route path="/team"><Protected><NavShell><ManagerOnly><TeamPage/></ManagerOnly></NavShell></Protected></Route>
         <Route component={NotFound}/>
-      </Switch>
+       </Switch>
+     </ProfileSync>
     </QueryClientProvider>
   </ClerkProvider>;
 }

@@ -32,6 +32,28 @@ export interface OfficeMember {
   createdAt: string;
 }
 
+export type OfficeInvitationStatus = typeof OfficeInvitationStatus[keyof typeof OfficeInvitationStatus];
+
+
+export const OfficeInvitationStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  expired: 'expired',
+  revoked: 'revoked',
+} as const;
+
+export interface OfficeInvitation {
+  id: string;
+  email: string;
+  status: OfficeInvitationStatus;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface OfficeInvitationInput {
+  email: string;
+}
+
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
 
 

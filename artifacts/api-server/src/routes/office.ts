@@ -1,9 +1,11 @@
-import { getAuth } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 import { desc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   CreateProjectBody,
   CreateProjectResponse,
+  CreateOfficeInvitationBody,
+  CreateOfficeInvitationResponse,
   CreateTaskBody,
   CreateTaskResponse,
   DeleteProjectParams,
@@ -12,6 +14,7 @@ import {
   GetProjectParams,
   GetProjectResponse,
   ListOfficeMembersResponse,
+  ListOfficeInvitationsResponse,
   ListProjectsResponse,
   ListTasksQueryParams,
   ListTasksResponse,
@@ -23,6 +26,7 @@ import {
   UpdateTaskBody,
   UpdateTaskParams,
   UpdateTaskResponse,
+  RevokeOfficeInvitationParams,
 } from "@workspace/api-zod";
 import {
   db,
@@ -242,6 +246,16 @@ router.post("/office/profile", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Sign in is required." });
     return;
   }
+  const clerk = clerkClient;
+  const clerkUser = await clerk.users.getUser(clerkUserId);
+  const primaryEmail = clerkUser.emailAddresses.find(
+    (entry) => entry.id === clerkUser.primaryEmailAddressId,
+  );
+  if (!primaryEmail || primaryEmail.verification?.status !== "verified") {
+    res.status(403).json({ error: "A verified primary email is required." });
+    return;
+  }
+  const verifiedEmail = primaryEmail.emailAddress.trim().toLowerCase();
 
   const member = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(98123451)`);
@@ -253,7 +267,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
     if (existing) {
       const [updated] = await tx
         .update(officeMembersTable)
-        .set({ name: parsed.data.name, email: parsed.data.email })
+        .set({ name: parsed.data.name, email: verifiedEmail })
         .where(eq(officeMembersTable.id, existing.id))
         .returning();
       return updated;
@@ -263,18 +277,32 @@ router.post("/office/profile", async (req, res): Promise<void> => {
       .from(officeMembersTable)
       .where(eq(officeMembersTable.role, "manager"))
       .limit(1);
+    const invitationMetadata = clerkUser.publicMetadata as Record<string, unknown>;
+    if (
+      manager &&
+      (invitationMetadata.officeWorkspace !== "technical-office" ||
+        invitationMetadata.officeInvitationEmail !== verifiedEmail)
+    ) {
+      return undefined;
+    }
     const [created] = await tx
       .insert(officeMembersTable)
       .values({
         clerkUserId,
         name: parsed.data.name,
-        email: parsed.data.email,
+        email: verifiedEmail,
         role: manager ? "engineer" : "manager",
       })
       .returning();
     return created;
   });
 
+  if (!member) {
+    res.status(403).json({
+      error: "An active invitation for this verified email is required.",
+    });
+    return;
+  }
   if (member.role === "manager") {
     await seedDevelopmentExamples(member.id);
   }
@@ -290,6 +318,116 @@ router.post("/office/profile", async (req, res): Promise<void> => {
     }),
   );
 });
+
+router.use(async (req, res, next) => {
+  const member = await requireMember(req, res);
+  if (member) next();
+});
+
+function serializeOfficeInvitation(invitation: {
+  id: string;
+  emailAddress: string;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  createdAt: number;
+  expiresAt?: number;
+}) {
+  const expiresAt =
+    invitation.expiresAt ?? invitation.createdAt + 30 * 24 * 60 * 60 * 1000;
+  return {
+    id: invitation.id,
+    email: invitation.emailAddress,
+    status: invitation.status,
+    createdAt: new Date(invitation.createdAt).toISOString(),
+    expiresAt: new Date(expiresAt).toISOString(),
+  };
+}
+
+router.get("/office/invitations", async (req, res): Promise<void> => {
+  const manager = await managerOnly(req, res);
+  if (!manager) return;
+  const clerk = clerkClient;
+  const invitations = await clerk.invitations.getInvitationList({
+    limit: 100,
+    orderBy: "-created_at",
+  });
+  res.json(
+    ListOfficeInvitationsResponse.parse(
+      invitations.data
+        .filter(
+          (invitation) =>
+            invitation.publicMetadata?.officeWorkspace === "technical-office",
+        )
+        .map(serializeOfficeInvitation),
+    ),
+  );
+});
+
+router.post("/office/invitations", async (req, res): Promise<void> => {
+  const manager = await managerOnly(req, res);
+  if (!manager) return;
+  const parsed = CreateOfficeInvitationBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const email = parsed.data.email.trim().toLowerCase();
+  const [existingMember] = await db
+    .select({ id: officeMembersTable.id })
+    .from(officeMembersTable)
+    .where(sql`lower(${officeMembersTable.email}) = ${email}`)
+    .limit(1);
+  if (existingMember) {
+    res.status(409).json({ error: "This email is already in the office." });
+    return;
+  }
+
+  try {
+    const clerk = clerkClient;
+    const invitation = await clerk.invitations.createInvitation({
+      emailAddress: email,
+      redirectUrl: "/technical-office/sign-up",
+      ignoreExisting: true,
+      publicMetadata: {
+        officeWorkspace: "technical-office",
+        officeInvitationEmail: email,
+      },
+    });
+    res.status(201).json(
+      CreateOfficeInvitationResponse.parse(
+        serializeOfficeInvitation(invitation),
+      ),
+    );
+  } catch (error) {
+    req.log.error({ error, email }, "Unable to create office invitation");
+    res.status(502).json({
+      error: "The invitation could not be sent. Check the address and try again.",
+    });
+  }
+});
+
+router.delete(
+  "/office/invitations/:invitationId",
+  async (req, res): Promise<void> => {
+    const manager = await managerOnly(req, res);
+    if (!manager) return;
+    const params = RevokeOfficeInvitationParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    try {
+      const clerk = clerkClient;
+      await clerk.invitations.revokeInvitation(params.data.invitationId);
+      res.sendStatus(204);
+    } catch (error) {
+      req.log.warn(
+        { error, invitationId: params.data.invitationId },
+        "Unable to revoke office invitation",
+      );
+      res.status(409).json({ error: "This invitation cannot be revoked." });
+    }
+  },
+);
 
 router.get("/office/members", async (_req, res): Promise<void> => {
   const members = await db

@@ -58,6 +58,51 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/OfficeMember"
+  /office/invitations:
+    get:
+      operationId: listOfficeInvitations
+      tags: [office]
+      summary: List workspace invitations
+      responses:
+        "200":
+          description: Invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeInvitation"
+    post:
+      operationId: createOfficeInvitation
+      tags: [office]
+      summary: Invite an engineer by email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeInvitationInput"
+      responses:
+        "201":
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeInvitation"
+  /office/invitations/{invitationId}:
+    parameters:
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      operationId: revokeOfficeInvitation
+      tags: [office]
+      summary: Revoke a pending workspace invitation
+      responses:
+        "204":
+          description: Invitation revoked
   /office/dashboard:
     get:
       operationId: getOfficeDashboard
@@ -248,6 +293,20 @@ components:
         email: { type: string }
         role: { type: string, enum: [manager, engineer] }
         createdAt: { type: string, format: date-time }
+    OfficeInvitation:
+      type: object
+      required: [id, email, status, createdAt, expiresAt]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        status: { type: string, enum: [pending, accepted, expired, revoked] }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    OfficeInvitationInput:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
     Project:
       type: object
       required: [id, name, client, location, status, progress, startDate, endDate, taskCount, completedTaskCount, updatedAt]

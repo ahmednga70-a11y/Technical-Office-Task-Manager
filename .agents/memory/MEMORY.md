@@ -1,2 +1,3 @@
 - [Technical-office product scope](technical-office-scope.md) — this app is for an in-company technical-office manager coordinating projects, engineers, and task progress.
 - [React and Clerk compatibility](clerk-react-compatibility.md) — keep app-local React and React DOM aligned; Clerk's peer requirement is newer than the workspace catalog.
+- [Clerk invitation access](clerk-invitation-access.md) — Clerk invitation emails alone do not make an app invite-only; enforce membership on every protected server route.
