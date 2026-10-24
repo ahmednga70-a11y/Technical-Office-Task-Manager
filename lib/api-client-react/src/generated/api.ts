@@ -26,6 +26,8 @@ import type {
   OfficeInvitation,
   OfficeInvitationInput,
   OfficeMember,
+  OfficeNotificationInbox,
+  OfficeNotificationRead,
   OfficeProfileInput,
   Project,
   ProjectDetails,
@@ -624,6 +626,157 @@ export function useGetOfficeDashboard<TData = Awaited<ReturnType<typeof getOffic
 
 
 
+
+export const getListOfficeNotificationsUrl = () => {
+
+
+
+
+  return `/api/office/notifications`
+}
+
+/**
+ * @summary List notifications for the current office member
+ */
+export const listOfficeNotifications = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeNotificationInbox> => {
+
+  return customFetch<OfficeNotificationInbox>(getListOfficeNotificationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeNotificationsQueryKey = () => {
+    return [
+    `/api/office/notifications`
+    ] as const;
+    }
+
+
+export const getListOfficeNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeNotifications>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeNotificationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeNotifications>>> = ({ signal }) => listOfficeNotifications({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeNotifications>>>
+export type ListOfficeNotificationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List notifications for the current office member
+ */
+
+export function useListOfficeNotifications<TData = Awaited<ReturnType<typeof listOfficeNotifications>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeNotificationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkOfficeNotificationReadUrl = (notificationId: number,) => {
+
+
+
+
+  return `/api/office/notifications/${notificationId}`
+}
+
+/**
+ * @summary Mark one office notification as read
+ */
+export const markOfficeNotificationRead = async (notificationId: number, options?: Parameters<typeof customFetch>[1]): Promise<OfficeNotificationRead> => {
+
+  return customFetch<OfficeNotificationRead>(getMarkOfficeNotificationReadUrl(notificationId),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkOfficeNotificationReadMutationKey = () => ['markOfficeNotificationRead'] as const;
+
+export const getMarkOfficeNotificationReadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOfficeNotificationRead>>, TError,MarkOfficeNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markOfficeNotificationRead>>, TError,MarkOfficeNotificationReadMutationVariables, TContext> => {
+
+const mutationKey = getMarkOfficeNotificationReadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markOfficeNotificationRead>>, MarkOfficeNotificationReadMutationVariables> = (props) => {
+          const {notificationId} = props ?? {};
+
+          return  markOfficeNotificationRead(notificationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkOfficeNotificationReadMutationResult = NonNullable<Awaited<ReturnType<typeof markOfficeNotificationRead>>>
+
+    export type MarkOfficeNotificationReadMutationError = ErrorType<void>
+    export type MarkOfficeNotificationReadMutationVariables = {notificationId: number}
+
+    /**
+ * @summary Mark one office notification as read
+ */
+export const useMarkOfficeNotificationRead = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOfficeNotificationRead>>, TError,MarkOfficeNotificationReadMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markOfficeNotificationRead>>,
+        TError,
+        MarkOfficeNotificationReadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkOfficeNotificationReadMutationOptions(options));
+    }
 
 export const getListProjectsUrl = () => {
 

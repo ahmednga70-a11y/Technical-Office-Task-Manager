@@ -166,6 +166,40 @@ export const taskActivityTable = pgTable(
   ],
 );
 
+export const officeNotificationsTable = pgTable(
+  "office_notifications",
+  {
+    id: serial("id").primaryKey(),
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => officeMembersTable.id, { onDelete: "cascade" }),
+    taskId: integer("task_id")
+      .notNull()
+      .references(() => tasksTable.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    message: text("message").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("office_notifications_member_created_idx").on(
+      table.memberId,
+      table.createdAt,
+    ),
+    index("office_notifications_member_read_idx").on(
+      table.memberId,
+      table.readAt,
+    ),
+    uniqueIndex("office_notifications_member_dedupe_idx").on(
+      table.memberId,
+      table.dedupeKey,
+    ),
+  ],
+);
+
 export const insertOfficeMemberSchema = createInsertSchema(officeMembersTable).omit({
   id: true,
   createdAt: true,
@@ -188,8 +222,15 @@ export const insertTaskActivitySchema = createInsertSchema(taskActivityTable).om
   id: true,
   createdAt: true,
 });
+export const insertOfficeNotificationSchema = createInsertSchema(
+  officeNotificationsTable,
+).omit({
+  id: true,
+  createdAt: true,
+});
 export type OfficeMember = z.infer<typeof insertOfficeMemberSchema>;
 export type Project = typeof projectsTable.$inferSelect;
 export type Task = typeof tasksTable.$inferSelect;
 export type TaskComment = typeof taskCommentsTable.$inferSelect;
 export type TaskActivity = typeof taskActivityTable.$inferSelect;
+export type OfficeNotification = typeof officeNotificationsTable.$inferSelect;

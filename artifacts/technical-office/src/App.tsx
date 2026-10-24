@@ -4,13 +4,14 @@ import { ClerkProvider, Show, SignIn, SignUp, useClerk, useUser } from '@clerk/r
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
-  Activity, ArrowLeft, Bell, BriefcaseBusiness, CalendarDays, CheckCheck, CircleAlert,
+  Activity, ArrowLeft, BriefcaseBusiness, CalendarDays, CheckCheck, CircleAlert,
   ClipboardList, Clock3, FolderKanban, LayoutDashboard, LogOut, MapPin, MessageCircle, Plus, Search,
   SlidersHorizontal, X, Pencil, Trash2, ListTodo, ArrowUpRight, LoaderCircle, RefreshCw,
 } from 'lucide-react';
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import {
   getGetOfficeDashboardQueryKey, getGetProjectQueryKey, getGetTaskDiscussionQueryKey, getListOfficeMembersQueryKey,
+  getListOfficeNotificationsQueryKey,
   getListOfficeInvitationsQueryKey, getListProjectsQueryKey, getListTasksQueryKey,
   useCreateOfficeInvitation, useCreateProject, useCreateTask,
   useDeleteProject, useDeleteTask, useGetOfficeDashboard, useGetProject,
@@ -20,6 +21,7 @@ import {
 } from '@workspace/api-client-react';
 import type { OfficeInvitation, OfficeMember, Project, ProjectInput, Task, TaskInput, TaskUpdate } from '@workspace/api-client-react';
 import TaskDiscussionDialog from '@/components/TaskDiscussionDialog';
+import NotificationBell from '@/components/NotificationBell';
 import NotFound from '@/pages/not-found';
 import '@/index.css';
 
@@ -255,7 +257,7 @@ function NavShell({ children }: { children: ReactNode }) {
          <div className="flex items-center gap-2 text-xs text-[#87918b]"><span className="text-[#365e58]">مساحة العمل</span><span>/</span><span className="text-[#4f625d]">{location.startsWith('/projects')?'المشاريع':location==='/tasks'?'المهام':location==='/team'?'الفريق':'لوحة المتابعة'}</span></div>
         <div className="flex items-center gap-3">
           <span className="hidden text-xs text-[#77827c] sm:block">{new Intl.DateTimeFormat('ar-EG',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}</span>
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-[#e0ded4] bg-[#fbfaf5] text-[#52756d]"><Bell size={17}/></span>
+          <NotificationBell />
         </div>
       </header>
       {children}
@@ -368,6 +370,12 @@ function ProjectDetailsPage() {
   const client=useQueryClient();const query=useGetProject(id,{query:{queryKey:getGetProjectQueryKey(id)}});
   const update=useUpdateProject();const remove=useDeleteProject();const createTask=useCreateTask();const updateTask=useUpdateTask();const deleteTask=useDeleteTask();
   const [edit,setEdit]=useState(false);const [taskOpen,setTaskOpen]=useState(false);const [editingTask,setEditingTask]=useState<Task|undefined>();const [discussionTask,setDiscussionTask]=useState<Task|undefined>();
+  const linkedTaskId = new URLSearchParams(window.location.search).get('taskId');
+  useEffect(()=>{
+    if(!query.data||!linkedTaskId)return;
+    const linkedTask=query.data.tasks?.find(task=>task.id===Number(linkedTaskId));
+    if(linkedTask){setDiscussionTask(linkedTask);setLocation(`/projects/${id}`);}
+  },[query.data,linkedTaskId,id,setLocation]);
   if(!Number.isFinite(id)) return <main className="page-content"><EmptyState title="رقم المشروع مش صحيح" body="ارجع لقائمة المشاريع واختار مشروع تاني."/></main>;
   if(query.isLoading)return <main className="page-content"><div className="skeleton mb-6 h-12 w-72"/><SkeletonRows/></main>;
   if(query.isError||!query.data)return <main className="page-content"><ErrorState retry={()=>query.refetch()}/></main>;
@@ -377,7 +385,7 @@ function ProjectDetailsPage() {
   const refreshTasks=()=>{client.invalidateQueries({queryKey:getGetProjectQueryKey(id)});client.invalidateQueries({queryKey:getListTasksQueryKey()});client.invalidateQueries({queryKey:getGetOfficeDashboardQueryKey()});client.invalidateQueries({queryKey:getListProjectsQueryKey()});};
   const submitTask=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{
     const options={onSuccess:()=>{refreshTasks();setTaskOpen(false);setEditingTask(undefined);}};
-    if('taskId' in value) updateTask.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{options.onSuccess();client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});}});
+    if('taskId' in value) updateTask.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{options.onSuccess();client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});client.invalidateQueries({queryKey:getListOfficeNotificationsQueryKey()});}});
     else createTask.mutate({data:value},options);
   };
   const removeTask=(task:Task)=>{if(window.confirm(`حذف المهمة «${task.title}»؟`))deleteTask.mutate({taskId:task.id},{onSuccess:refreshTasks});};
@@ -423,7 +431,7 @@ function TasksPage() {
   const [search,setSearch]=useState('');const [status,setStatus]=useState('all');const [project,setProject]=useState('all');const [modal,setModal]=useState(false);const [editing,setEditing]=useState<Task|undefined>();const [discussionTask,setDiscussionTask]=useState<Task|undefined>();
   const rows=useMemo(()=>query.data?.filter(task=>(status==='all'||task.status===status)&&(project==='all'||task.projectId===Number(project))&&(`${task.title} ${task.projectName} ${task.assigneeName||''}`.toLowerCase().includes(search.toLowerCase())))||[],[query.data,status,project,search]);
   const done=()=>{client.invalidateQueries({queryKey:getListTasksQueryKey()});client.invalidateQueries({queryKey:getGetOfficeDashboardQueryKey()});client.invalidateQueries({queryKey:getListProjectsQueryKey()});};
-  const onSubmit=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{if('taskId'in value)update.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{done();setModal(false);setEditing(undefined);client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});}});else create.mutate({data:value},{onSuccess:()=>{done();setModal(false);}});};
+  const onSubmit=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{if('taskId'in value)update.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{done();setModal(false);setEditing(undefined);client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});client.invalidateQueries({queryKey:getListOfficeNotificationsQueryKey()});}});else create.mutate({data:value},{onSuccess:()=>{done();setModal(false);}});};
   const onDelete=(task:Task)=>{if(window.confirm(`حذف المهمة «${task.title}»؟`))remove.mutate({taskId:task.id},{onSuccess:done});};
   return <main className="page-content"><PageTitle eyebrow="التكليفات والمتابعة" title="المهام" description="فلتر شغل الفريق، حدّث الحالات، وخلي كل موعد ظاهر." action={canManage&&<button className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50" disabled={!projectsQuery.data?.length} onClick={()=>{setEditing(undefined);setModal(true);}} data-testid="button-create-task"><Plus size={17}/> مهمة جديدة</button>}/>
     <div className="panel mb-5 flex flex-wrap gap-3 p-4"><div className="relative min-w-[200px] flex-1"><Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#89928b]"/><input className="field pr-10" placeholder="ابحث عن مهمة أو مشروع أو مسؤول..." value={search} onChange={e=>setSearch(e.target.value)} data-testid="input-search-tasks"/></div><select className="field w-auto min-w-[145px]" value={status} onChange={e=>setStatus(e.target.value)} data-testid="select-filter-status"><option value="all">كل الحالات</option>{Object.entries(arabicStatus).filter(([key])=>['todo','in_progress','review','done'].includes(key)).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><select className="field w-auto min-w-[150px]" value={project} onChange={e=>setProject(e.target.value)} data-testid="select-filter-project"><option value="all">كل المشاريع</option>{projectsQuery.data?.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></div>

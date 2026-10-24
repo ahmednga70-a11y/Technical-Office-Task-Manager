@@ -115,6 +115,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardOverview"
+  /office/notifications:
+    get:
+      operationId: listOfficeNotifications
+      tags: [office]
+      summary: List notifications for the current office member
+      responses:
+        "200":
+          description: Notifications and unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeNotificationInbox"
+  /office/notifications/{notificationId}:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      operationId: markOfficeNotificationRead
+      tags: [office]
+      summary: Mark one office notification as read
+      responses:
+        "200":
+          description: Notification read state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeNotificationRead"
+        "403":
+          description: Notification does not belong to the current member or task access is restricted
+        "404":
+          description: Notification not found
   /projects:
     get:
       operationId: listProjects
@@ -350,6 +384,35 @@ components:
       required: [email]
       properties:
         email: { type: string, format: email }
+    OfficeNotification:
+      type: object
+      required: [id, type, taskId, projectId, taskTitle, projectName, message, createdAt, readAt]
+      properties:
+        id: { type: integer }
+        type:
+          type: string
+          enum: [task_assigned, task_returned, task_review, due_soon, overdue]
+        taskId: { type: integer }
+        projectId: { type: integer }
+        taskTitle: { type: string }
+        projectName: { type: string }
+        message: { type: string }
+        createdAt: { type: string, format: date-time }
+        readAt: { type: ["string", "null"], format: date-time }
+    OfficeNotificationInbox:
+      type: object
+      required: [unreadCount, notifications]
+      properties:
+        unreadCount: { type: integer }
+        notifications:
+          type: array
+          items: { $ref: "#/components/schemas/OfficeNotification" }
+    OfficeNotificationRead:
+      type: object
+      required: [id, readAt]
+      properties:
+        id: { type: integer }
+        readAt: { type: string, format: date-time }
     Project:
       type: object
       required: [id, name, client, location, status, progress, startDate, endDate, taskCount, completedTaskCount, updatedAt]

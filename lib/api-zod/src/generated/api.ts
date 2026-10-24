@@ -137,6 +137,38 @@ export const GetOfficeDashboardResponse = zod.object({
 
 
 /**
+ * @summary List notifications for the current office member
+ */
+export const ListOfficeNotificationsResponse = zod.object({
+  "unreadCount": zod.number().int(),
+  "notifications": zod.array(zod.object({
+  "id": zod.number().int(),
+  "type": zod.enum(['task_assigned', 'task_returned', 'task_review', 'due_soon', 'overdue']),
+  "taskId": zod.number().int(),
+  "projectId": zod.number().int(),
+  "taskTitle": zod.string(),
+  "projectName": zod.string(),
+  "message": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable()
+}))
+})
+
+
+/**
+ * @summary Mark one office notification as read
+ */
+export const MarkOfficeNotificationReadParams = zod.object({
+  "notificationId": zod.coerce.number().int()
+})
+
+export const MarkOfficeNotificationReadResponse = zod.object({
+  "id": zod.number().int(),
+  "readAt": zod.coerce.date()
+})
+
+
+/**
  * @summary List projects
  */
 export const ListProjectsResponseItem = zod.object({

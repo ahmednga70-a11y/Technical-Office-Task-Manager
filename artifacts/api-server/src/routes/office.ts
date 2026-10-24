@@ -1,5 +1,5 @@
 import { clerkClient, getAuth } from "@clerk/express";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   CreateProjectBody,
@@ -18,11 +18,14 @@ import {
   GetProjectResponse,
   GetTaskDiscussionParams,
   GetTaskDiscussionResponse,
+  ListOfficeNotificationsResponse,
   ListOfficeMembersResponse,
   ListOfficeInvitationsResponse,
   ListProjectsResponse,
   ListTasksQueryParams,
   ListTasksResponse,
+  MarkOfficeNotificationReadParams,
+  MarkOfficeNotificationReadResponse,
   SyncOfficeProfileBody,
   SyncOfficeProfileResponse,
   UpdateProjectBody,
@@ -36,11 +39,13 @@ import {
 import {
   db,
   officeMembersTable,
+  officeNotificationsTable,
   projectsTable,
   taskActivityTable,
   taskCommentsTable,
   tasksTable,
 } from "@workspace/db";
+import { runDeadlineNotificationSweep } from "../services/deadlineNotifications";
 
 const router: IRouter = Router();
 const taskStatuses = ["todo", "in_progress", "review", "done"] as const;
@@ -104,7 +109,14 @@ async function verifiedClerkEmail(clerkUserId: string): Promise<string | undefin
 }
 
 function dateToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function toDateOnly(value: Date | string): string {
@@ -112,7 +124,7 @@ function toDateOnly(value: Date | string): string {
 }
 
 function dateWithOffset(days: number): string {
-  const date = new Date();
+  const date = new Date(`${dateToday()}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
@@ -416,6 +428,132 @@ router.use(async (req, res, next) => {
   const member = await requireMember(req, res);
   if (member) next();
 });
+
+router.get("/office/notifications", async (req, res): Promise<void> => {
+  await runDeadlineNotificationSweep();
+  const member = await requireMember(req, res);
+  if (!member) return;
+  const isManager = await isConfiguredManager(req, member);
+  const visibleNotifications = isManager
+    ? await db
+        .select({
+          notification: officeNotificationsTable,
+          task: tasksTable,
+          project: projectsTable,
+        })
+        .from(officeNotificationsTable)
+        .innerJoin(
+          tasksTable,
+          eq(officeNotificationsTable.taskId, tasksTable.id),
+        )
+        .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+        .where(eq(officeNotificationsTable.memberId, member.id))
+        .orderBy(desc(officeNotificationsTable.createdAt))
+        .limit(50)
+    : await db
+        .select({
+          notification: officeNotificationsTable,
+          task: tasksTable,
+          project: projectsTable,
+        })
+        .from(officeNotificationsTable)
+        .innerJoin(
+          tasksTable,
+          eq(officeNotificationsTable.taskId, tasksTable.id),
+        )
+        .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+        .where(
+          and(
+            eq(officeNotificationsTable.memberId, member.id),
+            eq(tasksTable.assigneeId, member.id),
+          ),
+        )
+        .orderBy(desc(officeNotificationsTable.createdAt))
+        .limit(50);
+  const [unread] = isManager
+    ? await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(officeNotificationsTable)
+        .where(
+          and(
+            eq(officeNotificationsTable.memberId, member.id),
+            isNull(officeNotificationsTable.readAt),
+          ),
+        )
+    : await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(officeNotificationsTable)
+        .innerJoin(
+          tasksTable,
+          eq(officeNotificationsTable.taskId, tasksTable.id),
+        )
+        .where(
+          and(
+            eq(officeNotificationsTable.memberId, member.id),
+            eq(tasksTable.assigneeId, member.id),
+            isNull(officeNotificationsTable.readAt),
+          ),
+        );
+  res.json(
+    ListOfficeNotificationsResponse.parse({
+      unreadCount: unread?.count ?? 0,
+      notifications: visibleNotifications.map(({ notification, task, project }) => ({
+        id: notification.id,
+        type: notification.type,
+        taskId: task.id,
+        projectId: project.id,
+        taskTitle: task.title,
+        projectName: project.name,
+        message: notification.message,
+        createdAt: notification.createdAt,
+        readAt: notification.readAt,
+      })),
+    }),
+  );
+});
+
+router.patch(
+  "/office/notifications/:notificationId",
+  async (req, res): Promise<void> => {
+    const params = MarkOfficeNotificationReadParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const member = await requireMember(req, res);
+    if (!member) return;
+    const [notification] = await db
+      .select()
+      .from(officeNotificationsTable)
+      .where(
+        and(
+          eq(officeNotificationsTable.id, params.data.notificationId),
+          eq(officeNotificationsTable.memberId, member.id),
+        ),
+      )
+      .limit(1);
+    if (!notification) {
+      res.status(404).json({ error: "Notification not found." });
+      return;
+    }
+    const access = await requireTaskParticipant(req, res, notification.taskId);
+    if (!access) return;
+    const readAt = notification.readAt ?? new Date();
+    const [updated] = await db
+      .update(officeNotificationsTable)
+      .set({ readAt })
+      .where(eq(officeNotificationsTable.id, notification.id))
+      .returning({
+        id: officeNotificationsTable.id,
+        readAt: officeNotificationsTable.readAt,
+      });
+    if (!updated) {
+      res.status(404).json({ error: "Notification not found." });
+      return;
+    }
+    res.json(MarkOfficeNotificationReadResponse.parse(updated));
+  },
+);
 
 function serializeOfficeInvitation(invitation: {
   id: string;
@@ -754,6 +892,28 @@ router.post("/tasks", async (req, res): Promise<void> => {
       oldValue: null,
       newValue: created.title,
     });
+    if (created.assigneeId !== null) {
+      const [assignee] = await tx
+        .select({
+          id: officeMembersTable.id,
+          role: officeMembersTable.role,
+        })
+        .from(officeMembersTable)
+        .where(eq(officeMembersTable.id, created.assigneeId))
+        .limit(1);
+      if (assignee?.role === "engineer") {
+        await tx
+          .insert(officeNotificationsTable)
+          .values({
+            memberId: assignee.id,
+            taskId: created.id,
+            type: "task_assigned",
+            message: `تم تكليفك بالمهمة «${created.title}».`,
+            dedupeKey: `task-assigned:${created.id}:created`,
+          })
+          .onConflictDoNothing();
+      }
+    }
     return [created];
   });
   const taskDto = (await listTaskRows()).find((row) => row.id === task.id);
@@ -931,6 +1091,82 @@ router.patch("/tasks/:taskId", async (req, res): Promise<void> => {
           ...event,
         })),
       );
+    }
+    const notifications: Array<typeof officeNotificationsTable.$inferInsert> = [];
+    const eventKey = updated.updatedAt.getTime();
+    if (
+      updated.assigneeId !== null &&
+      updated.assigneeId !== existing.assigneeId
+    ) {
+      const [assignee] = await tx
+        .select({
+          id: officeMembersTable.id,
+          role: officeMembersTable.role,
+        })
+        .from(officeMembersTable)
+        .where(eq(officeMembersTable.id, updated.assigneeId))
+        .limit(1);
+      if (assignee?.role === "engineer") {
+        notifications.push({
+          memberId: assignee.id,
+          taskId: updated.id,
+          type: "task_assigned",
+          message: `تم تكليفك بالمهمة «${updated.title}».`,
+          dedupeKey: `task-assigned:${updated.id}:${eventKey}`,
+        });
+      }
+    } else if (
+      existing.status === "review" &&
+      updated.status !== "review" &&
+      updated.status !== "done" &&
+      updated.assigneeId !== null
+    ) {
+      const [assignee] = await tx
+        .select({
+          id: officeMembersTable.id,
+          role: officeMembersTable.role,
+        })
+        .from(officeMembersTable)
+        .where(eq(officeMembersTable.id, updated.assigneeId))
+        .limit(1);
+      if (assignee?.role === "engineer") {
+        notifications.push({
+          memberId: assignee.id,
+          taskId: updated.id,
+          type: "task_returned",
+          message: `أُعيدت إليك المهمة «${updated.title}» بعد المراجعة.`,
+          dedupeKey: `task-returned:${updated.id}:${eventKey}`,
+        });
+      }
+    }
+    if (existing.status !== "review" && updated.status === "review") {
+      const managerEmail = configuredManagerEmail();
+      const managers = managerEmail
+        ? await tx
+            .select({ id: officeMembersTable.id })
+            .from(officeMembersTable)
+            .where(
+              and(
+                eq(officeMembersTable.role, "manager"),
+                sql`lower(${officeMembersTable.email}) = ${managerEmail}`,
+              ),
+            )
+        : [];
+      for (const manager of managers) {
+        notifications.push({
+          memberId: manager.id,
+          taskId: updated.id,
+          type: "task_review",
+          message: `وصلت المهمة «${updated.title}» إلى مرحلة المراجعة.`,
+          dedupeKey: `task-review:${updated.id}:${eventKey}`,
+        });
+      }
+    }
+    if (notifications.length) {
+      await tx
+        .insert(officeNotificationsTable)
+        .values(notifications)
+        .onConflictDoNothing();
     }
     return [updated];
   });

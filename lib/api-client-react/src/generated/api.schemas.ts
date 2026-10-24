@@ -54,6 +54,40 @@ export interface OfficeInvitationInput {
   email: string;
 }
 
+export type OfficeNotificationType = typeof OfficeNotificationType[keyof typeof OfficeNotificationType];
+
+
+export const OfficeNotificationType = {
+  task_assigned: 'task_assigned',
+  task_returned: 'task_returned',
+  task_review: 'task_review',
+  due_soon: 'due_soon',
+  overdue: 'overdue',
+} as const;
+
+export interface OfficeNotification {
+  id: number;
+  type: OfficeNotificationType;
+  taskId: number;
+  projectId: number;
+  taskTitle: string;
+  projectName: string;
+  message: string;
+  createdAt: string;
+  /** @nullable */
+  readAt: string | null;
+}
+
+export interface OfficeNotificationInbox {
+  unreadCount: number;
+  notifications: OfficeNotification[];
+}
+
+export interface OfficeNotificationRead {
+  id: number;
+  readAt: string;
+}
+
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];
 
 
