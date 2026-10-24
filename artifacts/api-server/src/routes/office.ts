@@ -80,6 +80,22 @@ async function requireMember(req: Request, res: Response) {
   return member;
 }
 
+function configuredManagerEmail(): string | undefined {
+  const email = process.env.OFFICE_MANAGER_EMAIL?.trim().toLowerCase();
+  return email || undefined;
+}
+
+async function verifiedClerkEmail(clerkUserId: string): Promise<string | undefined> {
+  const user = await clerkClient.users.getUser(clerkUserId);
+  const primaryEmail = user.emailAddresses.find(
+    (entry) => entry.id === user.primaryEmailAddressId,
+  );
+  if (!primaryEmail || primaryEmail.verification?.status !== "verified") {
+    return undefined;
+  }
+  return primaryEmail.emailAddress.trim().toLowerCase();
+}
+
 function dateToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -228,7 +244,18 @@ async function listProjectRows() {
 async function managerOnly(req: Request, res: Response) {
   const member = await requireMember(req, res);
   if (!member) return undefined;
-  if (member.role !== "manager") {
+  const managerEmail = configuredManagerEmail();
+  if (!managerEmail) {
+    res.status(503).json({ error: "Manager email is not configured." });
+    return undefined;
+  }
+  const clerkUserId = currentClerkUserId(req);
+  const email = clerkUserId ? await verifiedClerkEmail(clerkUserId) : undefined;
+  if (
+    member.role !== "manager" ||
+    member.email.trim().toLowerCase() !== managerEmail ||
+    email !== managerEmail
+  ) {
     res.status(403).json({ error: "Manager access is required for this action." });
     return undefined;
   }
@@ -244,6 +271,11 @@ router.post("/office/profile", async (req, res): Promise<void> => {
   const clerkUserId = currentClerkUserId(req);
   if (!clerkUserId) {
     res.status(401).json({ error: "Sign in is required." });
+    return;
+  }
+  const managerEmail = configuredManagerEmail();
+  if (!managerEmail) {
+    res.status(503).json({ error: "Manager email is not configured." });
     return;
   }
   const clerk = clerkClient;
@@ -264,22 +296,40 @@ router.post("/office/profile", async (req, res): Promise<void> => {
       .from(officeMembersTable)
       .where(eq(officeMembersTable.clerkUserId, clerkUserId))
       .limit(1);
+    if (verifiedEmail === managerEmail) {
+      await tx
+        .update(officeMembersTable)
+        .set({ role: "engineer" })
+        .where(eq(officeMembersTable.role, "manager"));
+      if (existing) {
+        const [updated] = await tx
+          .update(officeMembersTable)
+          .set({ name: parsed.data.name, email: verifiedEmail, role: "manager" })
+          .where(eq(officeMembersTable.id, existing.id))
+          .returning();
+        return updated;
+      }
+      const [created] = await tx
+        .insert(officeMembersTable)
+        .values({
+          clerkUserId,
+          name: parsed.data.name,
+          email: verifiedEmail,
+          role: "manager",
+        })
+        .returning();
+      return created;
+    }
     if (existing) {
       const [updated] = await tx
         .update(officeMembersTable)
-        .set({ name: parsed.data.name, email: verifiedEmail })
+        .set({ name: parsed.data.name, email: verifiedEmail, role: "engineer" })
         .where(eq(officeMembersTable.id, existing.id))
         .returning();
       return updated;
     }
-    const [manager] = await tx
-      .select({ id: officeMembersTable.id })
-      .from(officeMembersTable)
-      .where(eq(officeMembersTable.role, "manager"))
-      .limit(1);
     const invitationMetadata = clerkUser.publicMetadata as Record<string, unknown>;
     if (
-      manager &&
       (invitationMetadata.officeWorkspace !== "technical-office" ||
         invitationMetadata.officeInvitationEmail !== verifiedEmail)
     ) {
@@ -291,7 +341,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
         clerkUserId,
         name: parsed.data.name,
         email: verifiedEmail,
-        role: manager ? "engineer" : "manager",
+        role: "engineer",
       })
       .returning();
     return created;
@@ -430,6 +480,11 @@ router.delete(
 );
 
 router.get("/office/members", async (_req, res): Promise<void> => {
+  const managerEmail = configuredManagerEmail();
+  if (!managerEmail) {
+    res.status(503).json({ error: "Manager email is not configured." });
+    return;
+  }
   const members = await db
     .select()
     .from(officeMembersTable)
@@ -441,7 +496,10 @@ router.get("/office/members", async (_req, res): Promise<void> => {
         clerkUserId: member.clerkUserId,
         name: member.name,
         email: member.email,
-        role: member.role,
+        role:
+          member.email.trim().toLowerCase() === managerEmail
+            ? "manager"
+            : "engineer",
         createdAt: member.createdAt.toISOString(),
       })),
     ),
