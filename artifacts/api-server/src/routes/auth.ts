@@ -51,15 +51,18 @@ function officeMemberDto(
 async function bootstrapConfiguredManager(username: string): Promise<void> {
   const managerEmail = configuredManagerEmail();
   const initialPassword = process.env.OFFICE_MANAGER_INITIAL_PASSWORD;
-  if (managerEmail && username === managerEmail && initialPassword && initialPassword.length < MIN_PASSWORD_LENGTH) {
-    throw new Error("The initial manager password does not meet the minimum length.");
+  if (!managerEmail || username !== managerEmail) return;
+  const [existingManagerAccount] = await db
+    .select({ memberId: officeAccountsTable.memberId })
+    .from(officeAccountsTable)
+    .where(eq(officeAccountsTable.username, managerEmail))
+    .limit(1);
+  if (existingManagerAccount) return;
+  if (!initialPassword) {
+    throw new Error("The initial manager password is not configured.");
   }
-  if (
-    !managerEmail ||
-    username !== managerEmail ||
-    !initialPassword
-  ) {
-    return;
+  if (initialPassword.length < MIN_PASSWORD_LENGTH) {
+    throw new Error("The initial manager password does not meet the minimum length.");
   }
 
   await db.transaction(async (tx) => {
