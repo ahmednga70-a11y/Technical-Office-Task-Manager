@@ -100,7 +100,7 @@ const clerkAppearance = {
 function Brand({ inverse = false }: { inverse?: boolean }) {
   return <div className="flex items-center gap-3" dir="rtl">
     <span className="brand-mark"><FolderKanban size={20} strokeWidth={2.2} /></span>
-    <span className={`brand-word text-[17px] font-extrabold tracking-tight ${inverse ? 'text-white' : 'text-[#203b39]'}`}>مِعمار<span className="text-[#e17f56]">.</span></span>
+    <span className={`brand-word text-[17px] font-extrabold tracking-tight ${inverse ? 'text-white' : 'text-[#203b39]'}`}>فريق المكتب الفنى</span>
   </div>;
 }
 
@@ -182,7 +182,7 @@ function HomePage() {
           الشغل واضح،<br /><span className="text-[#d77850]">والتسليم في معاده.</span>
         </h1>
         <p className="mt-6 max-w-[600px] text-lg leading-[2] text-[#687773]">
-          مِعمار يجمع المشاريع والمهام والمسؤوليات في مكان واحد. عشان كل مهندس يعرف عليه إيه، والمدير يشوف الصورة كاملة من غير رسائل متفرقة.
+          فريق المكتب الفنى يجمع المشاريع والمهام والمسؤوليات في مكان واحد. عشان كل مهندس يعرف عليه إيه، والمدير يشوف الصورة كاملة من غير رسائل متفرقة.
         </p>
         <div className="mt-9 flex flex-wrap items-center gap-4">
           <Link href="/sign-up" className="btn btn-primary px-6 py-4 text-base">أنشئ مساحة مكتبك <ArrowLeft size={18} /></Link>
@@ -233,7 +233,7 @@ function HomePage() {
       </div>
       <div><span className="text-xs font-bold tracking-widest text-[#d77850]">مبني على واقع شغلك</span><h2 className="mt-5 text-4xl font-extrabold leading-[1.5] tracking-tight text-[#203b39] md:text-5xl">مساحة تعرف لغة المشروع.</h2><p className="mt-5 text-base leading-8 text-[#6d7a74]">من الرسومات التنفيذية والـ RFI لحد حصر الكميات والتنسيق، رتّب شغل الفريق بنفس التصنيفات اللي بتستخدموها كل يوم.</p><Link href="/sign-up" className="mt-8 inline-flex items-center gap-2 font-bold text-[#285e59] no-underline">ابدأ بتنظيم شغلك <ArrowLeft size={17} /></Link></div>
     </section>
-    <footer className="border-t border-[#dedbcf] bg-[#f0eee5]"><div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-10"><Brand /><span className="text-xs text-[#77827c]">مِعمار — مساحة شغل أوضح للمكاتب الفنية.</span><Link href="/sign-in" className="text-sm font-bold text-[#285e59] no-underline">دخول لمساحة العمل <ArrowLeft size={15} className="inline" /></Link></div></footer>
+    <footer className="border-t border-[#dedbcf] bg-[#f0eee5]"><div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-10"><Brand /><span className="text-xs text-[#77827c]">فريق المكتب الفنى — مساحة شغل أوضح للمكاتب الفنية.</span><Link href="/sign-in" className="text-sm font-bold text-[#285e59] no-underline">دخول لمساحة العمل <ArrowLeft size={15} className="inline" /></Link></div></footer>
   </main>;
 }
 
