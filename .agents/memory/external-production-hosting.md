@@ -11,6 +11,12 @@ The user also chose: «استمر على Vercel وNeon وجهّز تسجيل د�
 
 **How to apply:** Preserve Neon, Vercel, and independent production authentication when diagnosing production issues. Do not replace their database with Replit's database, revert production authentication to the managed service, or assume Replit publishing updates Vercel. Do not delete the old identity tenant merely to configure the independent production instance. Do not apply production schema changes without reviewing their effects with the user.
 
+Check external database schema readiness independently from successful page rendering, authentication-provider loading, and process liveness.
+
+**Why:** Publishing code to Vercel does not initialize or migrate Neon. A healthy HTTP server and a verified manager identity are insufficient to prove that the database can provision office membership.
+
+**How to apply:** Inspect only schema metadata first, confirm the actual target branch/database, and review an additive migration before authorizing any production writes.
+
 Independent Clerk's production instance requires a user-owned domain and DNS setup; a `*.vercel.app` URL supports development-key testing, not final production authentication.
 
 **Why:** Clerk's official Vercel deployment guide explicitly disallows its production instance on `*.vercel.app`, since the required DNS records cannot be set there. Source: https://clerk.com/docs/guides/development/deployment/vercel
