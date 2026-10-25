@@ -17,6 +17,12 @@ Check external database schema readiness independently from successful page rend
 
 **How to apply:** Inspect only schema metadata first, confirm the actual target branch/database, and review an additive migration before authorizing any production writes.
 
+A branch-scoped hosting variable does not prove that its secret connection string points to the intended database branch.
+
+**Why:** A Preview variable can have the correct Git branch scope while its connection string targets a different database. A successful build does not validate that target.
+
+**How to apply:** Confirm runtime schema readiness against the intended Neon branch before claiming isolation or working login. If runtime reports missing tables that exist on the test branch, investigate the connection target; do not migrate production to hide the mismatch.
+
 The user confirmed the external application's Neon target: project `technical office`, branch `production`, database `neondb`.
 
 **Why:** The user explicitly confirmed this target before authorizing schema initialization.
