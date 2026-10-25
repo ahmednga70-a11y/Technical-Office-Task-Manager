@@ -21,7 +21,7 @@ export function validateVercelEnvironment(env) {
       errors.push("VITE_CLERK_PUBLISHABLE_KEY must contain a valid Clerk instance domain.");
     }
   }
-  if (secretKey && !/^sk_(test|live)_\S+$/.test(secretKey)) {
+  if (secretKey && !/^sk_(test|live)_[A-Za-z0-9_-]+$/.test(secretKey)) {
     errors.push("CLERK_SECRET_KEY is not a valid Clerk secret key.");
   }
   if (publicKey && secretKey && publicKey.split("_")[1] !== secretKey.split("_")[1]) {

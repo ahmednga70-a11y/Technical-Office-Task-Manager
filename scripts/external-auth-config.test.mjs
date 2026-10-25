@@ -31,6 +31,7 @@ test("each required field fails clearly when absent", () => {
 });
 
 test("mixed instances, environments, and managed proxy leftovers are rejected", () => {
+  assert(validateVercelEnvironment({ ...valid, CLERK_SECRET_KEY: "sk_test_••••••" }).some(e => e.includes("CLERK_SECRET_KEY")));
   assert(validateVercelEnvironment({ ...valid, CLERK_SECRET_KEY: "sk_live_fixture" }).some(e => e.includes("same test/live")));
   assert(validateVercelEnvironment({ ...valid, CLERK_PUBLISHABLE_KEY: `${publicKey}other` }).some(e => e.includes("must match")));
   assert(validateVercelEnvironment({ ...valid, VITE_CLERK_PROXY_URL: "/api/__clerk" }).some(e => e.includes("managed proxy")));
