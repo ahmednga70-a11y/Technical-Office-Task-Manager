@@ -385,12 +385,29 @@ function DashboardPage() {
   </main>;
 }
 
-function ProjectForm({ initial, onClose, onSubmit, busy }: { initial?: Project & {description?:string}; onClose:()=>void; onSubmit:(data:ProjectInput & {status?:Project['status']})=>void; busy:boolean }) {
+function ProjectForm({ initial, onClose, onSubmit, busy, error }: { initial?: Project & {description?:string}; onClose:()=>void; onSubmit:(data:ProjectInput & {status?:Project['status']})=>void; busy:boolean; error?:string }) {
   const [form,setForm]=useState({name:initial?.name||'',client:initial?.client||'',location:initial?.location||'',description:initial?.description||'',startDate:initial?.startDate?.slice(0,10)||'',endDate:initial?.endDate?.slice(0,10)||'',status:initial?.status||'active'});
   const submit=(event:FormEvent)=>{event.preventDefault();onSubmit(form);};
   return <div className="modal-backdrop" onMouseDown={(e)=>e.target===e.currentTarget&&onClose()}><form className="modal" onSubmit={submit}>
     <div className="mb-6 flex items-start justify-between"><div><p className="text-xs font-bold text-[#d77850]">{initial?'تحديث بيانات':'مشروع جديد'}</p><h2 className="mt-2 text-2xl font-extrabold text-[#203b39]">{initial?'تعديل المشروع':'ضيف مشروع للمساحة'}</h2></div><button type="button" className="btn btn-ghost !p-2" onClick={onClose}><X size={18}/></button></div>
-    <div className="grid gap-4 sm:grid-cols-2"><label><span className="field-label">اسم المشروع *</span><input required className="field" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="مثال: مبنى إداري — التجمع" data-testid="input-project-name"/></label><label><span className="field-label">العميل</span><input className="field" value={form.client} onChange={e=>setForm({...form,client:e.target.value})} placeholder="اسم العميل"/></label><label><span className="field-label">الموقع</span><input className="field" value={form.location} onChange={e=>setForm({...form,location:e.target.value})} placeholder="المدينة أو المنطقة"/></label>{initial&&<label><span className="field-label">حالة المشروع</span><select className="field" value={form.status} onChange={e=>setForm({...form,status:e.target.value as Project['status']})}>{Object.entries(arabicStatus).filter(([key])=>['active','on_hold','completed'].includes(key)).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>}<div className="grid grid-cols-2 gap-3"><label><span className="field-label">تاريخ البداية</span><input type="date" className="field ltr" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})}/></label><label><span className="field-label">تاريخ التسليم</span><input type="date" className="field ltr" value={form.endDate} onChange={e=>setForm({...form,endDate:e.target.value})}/></label></div><label className="sm:col-span-2"><span className="field-label">نبذة عن المشروع</span><textarea className="field min-h-[90px] resize-y" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="تفاصيل تساعد الفريق يفهم نطاق الشغل"/></label></div>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label><span className="field-label">اسم المشروع *</span><input required className="field" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="مثال: مبنى إداري — التجمع" data-testid="input-project-name"/></label>
+      <label><span className="field-label">العميل</span><input className="field" value={form.client} onChange={e=>setForm({...form,client:e.target.value})} placeholder="اسم العميل"/></label>
+      <label><span className="field-label">الموقع</span><input className="field" value={form.location} onChange={e=>setForm({...form,location:e.target.value})} placeholder="المدينة أو المنطقة"/></label>
+      {initial&&<label><span className="field-label">حالة المشروع</span><select className="field" value={form.status} onChange={e=>setForm({...form,status:e.target.value as Project['status']})}>{Object.entries(arabicStatus).filter(([key])=>['active','on_hold','completed'].includes(key)).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>}
+      <div className="grid grid-cols-2 gap-3">
+        <label>
+          <span className="field-label">تاريخ البداية *</span>
+          <input type="date" required className="field ltr" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})} data-testid="input-project-start-date"/>
+        </label>
+        <label>
+          <span className="field-label">تاريخ التسليم *</span>
+          <input type="date" required min={form.startDate||undefined} className="field ltr" value={form.endDate} onChange={e=>setForm({...form,endDate:e.target.value})} data-testid="input-project-end-date"/>
+        </label>
+      </div>
+      <label className="sm:col-span-2"><span className="field-label">نبذة عن المشروع</span><textarea className="field min-h-[90px] resize-y" value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="تفاصيل تساعد الفريق يفهم نطاق الشغل"/></label>
+    </div>
+    {error&&<p className="mt-4 text-sm font-semibold text-[#a64d40]" role="alert">{error}</p>}
     <div className="mt-7 flex justify-end gap-2"><button type="button" className="btn btn-soft" onClick={onClose}>إلغاء</button><button disabled={busy} className="btn btn-primary">{busy&&<LoaderCircle className="animate-spin" size={15}/>} {initial?'حفظ التعديلات':'إنشاء المشروع'}</button></div>
   </form></div>;
 }
@@ -409,7 +426,7 @@ function ProjectsPage() {
     {isLoading?<SkeletonRows/>:isError?<ErrorState retry={()=>refetch()}/>:
       filtered.length?<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map((project,i)=><ProjectCard key={project.id} project={project} index={i}/>)}</div>:
        <EmptyState title={search?'ملقيناش نتيجة':'ابدأ بأول مشروع'} body={search?'جرّب كلمة بحث تانية أو امسح البحث.':'ضيف مشروعك الأول، وبعدها رتّب المهام والمسؤوليات جوّاه.'} action={!search&&canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}><Plus size={16}/> مشروع جديد</button>}/>}
-    {modal&&canManage&&<ProjectForm onClose={()=>setModal(false)} onSubmit={submit} busy={create.isPending}/>}
+    {modal&&canManage&&<ProjectForm onClose={()=>setModal(false)} onSubmit={submit} busy={create.isPending} error={create.isError?'تعذّر حفظ المشروع. راجع البيانات والتواريخ، ثم حاول مرة أخرى.':undefined}/>}
   </main>;
 }
 function ProjectCard({project,index}:{project:Project;index:number}) {
@@ -453,7 +470,7 @@ function ProjectDetailsPage() {
           </div>
           {project.tasks?.length?<div className="mt-6">{project.tasks.map(task=><TaskRow task={task} key={task.id} onEdit={task=>{setEditingTask(task);setTaskOpen(true);}} onDelete={removeTask} onDiscussion={setDiscussionTask}/>)}</div>:<div className="mt-6"><EmptyState title="المشروع لسه من غير مهام" body="سجّل أول مهمة وحدد المسؤول وموعد التسليم عشان يبدأ الشغل." action={canManage&&<button className="btn btn-primary" onClick={()=>setTaskOpen(true)}><Plus size={15}/> أضف مهمة</button>}/></div>}
       </div></div>
-     {edit&&canManage&&<ProjectForm initial={project} onClose={()=>setEdit(false)} onSubmit={onUpdate} busy={update.isPending}/>}
+     {edit&&canManage&&<ProjectForm initial={project} onClose={()=>setEdit(false)} onSubmit={onUpdate} busy={update.isPending} error={update.isError?'تعذّر حفظ التعديلات. راجع البيانات والتواريخ، ثم حاول مرة أخرى.':undefined}/>}
      {taskOpen&&(canManage||editingTask?.assigneeId===member?.id)&&<TaskForm projects={[project]} initialProjectId={id} initial={editingTask} onClose={()=>{setTaskOpen(false);setEditingTask(undefined);}} onSubmit={submitTask} busy={createTask.isPending||updateTask.isPending}/>}
       {discussionTask&&<TaskDiscussionDialog task={discussionTask} canUpload={canManage||discussionTask.assigneeId===member?.id} onClose={()=>setDiscussionTask(undefined)}/>}
   </main>;
