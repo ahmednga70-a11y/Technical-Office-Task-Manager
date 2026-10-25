@@ -3,7 +3,7 @@
   "framework": null,
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm --filter @workspace/api-server run build:vercel && PORT=3000 BASE_PATH=/ pnpm --filter @workspace/technical-office run build",
-  "outputDirectory": "artifacts/technical-office/dist",
+  "outputDirectory": "artifacts/technical-office/dist/public",
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
@@ -12,11 +12,11 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "destination": "/api"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api(?:/|$)|assets/).*)",
       "destination": "/index.html"
     }
   ]

@@ -17,6 +17,9 @@ out-tsc
 # dependencies
 node_modules
 
+# Generated Vercel server bundle (rebuilt during deployment)
+/artifacts/api-server/dist-vercel/
+
 # IDEs and editors
 /.idea
 .project

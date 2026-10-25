@@ -2,3 +2,4 @@
 - [React and Clerk compatibility](clerk-react-compatibility.md) — keep app-local React and React DOM aligned; Clerk's peer requirement is newer than the workspace catalog.
 - [Clerk invitation access](clerk-invitation-access.md) — Clerk invitation emails alone do not make an app invite-only; enforce membership on every protected server route.
 - [Technical-office build environment](technical-office-build-env.md) — manual Vite production builds need the artifact’s `PORT` and `BASE_PATH` values.
+- [External production hosting](external-production-hosting.md) — the user chose Neon and Vercel for production; preserve that setup.

@@ -5,7 +5,7 @@ const artifactDir = fileURLToPath(new URL(".", import.meta.url));
 
 await build({
   absWorkingDir: artifactDir,
-  entryPoints: ["src/vercel-entry.ts"],
+  entryPoints: ["src/vercel-handler.ts"],
   outfile: "dist-vercel/handler.cjs",
   platform: "node",
   target: "node22",
