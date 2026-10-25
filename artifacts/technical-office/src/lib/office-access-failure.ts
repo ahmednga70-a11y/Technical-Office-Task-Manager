@@ -42,6 +42,20 @@ export function classifyOfficeAccessFailure(error: unknown): OfficeAccessFailure
       description: 'يوجد أكثر من سجل مرتبط بالبريد نفسه. يلزم مراجعة السجلات قبل الربط؛ لم يتم دمج الحسابات تلقائيًا.',
     };
   }
+  if (status === 503 && data?.code === 'OFFICE_DATABASE_SCHEMA_MISSING') {
+    return {
+      kind: 'service', status,
+      title: 'قاعدة بيانات المكتب غير مجهّزة',
+      description: 'بعض جداول أو أعمدة التطبيق غير موجودة في قاعدة البيانات المنشورة. يلزم مراجعة وتجهيز البنية بدون حذف البيانات؛ حساب المدير لا يحتاج دعوة لحل الخطأ ده.',
+    };
+  }
+  if (status === 503 && data?.code === 'OFFICE_DATABASE_UNAVAILABLE') {
+    return {
+      kind: 'service', status,
+      title: 'تعذّر الاتصال بقاعدة بيانات المكتب',
+      description: 'تسجيل الدخول لا يكفي حاليًا للوصول لبيانات المكتب. يلزم مراجعة اتصال قاعدة البيانات المنشورة؛ لا تحتاج إنشاء حساب آخر أو طلب دعوة بسبب الخطأ ده.',
+    };
+  }
   return {
     kind: 'service', status,
     title: 'تعذّر ربط الحساب بالمكتب',

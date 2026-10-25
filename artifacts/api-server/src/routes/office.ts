@@ -47,6 +47,7 @@ import {
 } from "@workspace/db";
 import { runDeadlineNotificationSweep } from "../services/deadlineNotifications";
 import { officeSignUpUrl, usesExternalClerk } from "../lib/clerkConfiguration";
+import { officeProfileFailure } from "../lib/officeProfileFailure";
 
 const router: IRouter = Router();
 const taskStatuses = ["todo", "in_progress", "review", "done"] as const;
@@ -323,6 +324,7 @@ export async function requireTaskParticipant(
 }
 
 router.post("/office/profile", async (req, res): Promise<void> => {
+  try {
   const parsed = SyncOfficeProfileBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -335,7 +337,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
   }
   const managerEmail = configuredManagerEmail();
   if (!managerEmail) {
-    res.status(503).json({ error: "Manager email is not configured." });
+    res.status(503).json({ error: "Manager email is not configured.", code: "OFFICE_MANAGER_NOT_CONFIGURED" });
     return;
   }
   const clerk = clerkClient;
@@ -344,7 +346,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
     (entry) => entry.id === clerkUser.primaryEmailAddressId,
   );
   if (!primaryEmail || primaryEmail.verification?.status !== "verified") {
-    res.status(403).json({ error: "A verified primary email is required." });
+    res.status(403).json({ error: "A verified primary email is required.", code: "EMAIL_NOT_VERIFIED" });
     return;
   }
   const verifiedEmail = primaryEmail.emailAddress.trim().toLowerCase();
@@ -431,6 +433,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
   if (!member) {
     res.status(403).json({
       error: "An active invitation for this verified email is required.",
+      code: "INVITATION_REQUIRED",
     });
     return;
   }
@@ -448,6 +451,12 @@ router.post("/office/profile", async (req, res): Promise<void> => {
       createdAt: member.createdAt.toISOString(),
     }),
   );
+  } catch (error) {
+    const failure = officeProfileFailure(error);
+    // Never log the raw Drizzle/PG error: it may contain query parameters or PII.
+    req.log.error({ code: failure.code }, "Office profile synchronization failed");
+    res.status(failure.status).json({ error: failure.error, code: failure.code });
+  }
 });
 
 router.use(async (req, res, next) => {
