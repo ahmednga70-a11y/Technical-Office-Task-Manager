@@ -18,6 +18,51 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Sign in to the technical office with a username and password
+ */
+export const loginOfficeAccountBodyUsernameMax = 254;
+
+export const loginOfficeAccountBodyPasswordMax = 256;
+
+
+
+export const LoginOfficeAccountBody = zod.object({
+  "username": zod.string().min(1).max(loginOfficeAccountBodyUsernameMax),
+  "password": zod.string().min(1).max(loginOfficeAccountBodyPasswordMax)
+})
+
+export const LoginOfficeAccountResponse = zod.object({
+  "id": zod.number().int(),
+  "clerkUserId": zod.string().nullable(),
+  "username": zod.string().nullable(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['manager', 'engineer']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Return the current authenticated office member
+ */
+export const GetOfficeSessionResponse = zod.object({
+  "id": zod.number().int(),
+  "clerkUserId": zod.string().nullable(),
+  "username": zod.string().nullable(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['manager', 'engineer']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Revoke the current office session
+ */
+export const LogoutOfficeAccountResponse = zod.void()
+
+
+/**
  * @summary Register the signed-in user in the office workspace
  */
 
@@ -30,7 +75,8 @@ export const SyncOfficeProfileBody = zod.object({
 
 export const SyncOfficeProfileResponse = zod.object({
   "id": zod.number().int(),
-  "clerkUserId": zod.string().optional(),
+  "clerkUserId": zod.string().nullable(),
+  "username": zod.string().nullable(),
   "name": zod.string(),
   "email": zod.string(),
   "role": zod.enum(['manager', 'engineer']),
@@ -43,13 +89,64 @@ export const SyncOfficeProfileResponse = zod.object({
  */
 export const ListOfficeMembersResponseItem = zod.object({
   "id": zod.number().int(),
-  "clerkUserId": zod.string().optional(),
+  "clerkUserId": zod.string().nullable(),
+  "username": zod.string().nullable(),
   "name": zod.string(),
   "email": zod.string(),
   "role": zod.enum(['manager', 'engineer']),
   "createdAt": zod.coerce.date()
 })
 export const ListOfficeMembersResponse = zod.array(ListOfficeMembersResponseItem)
+
+
+/**
+ * @summary Create an engineer account (manager only)
+ */
+export const createOfficeMemberBodyNameMax = 120;
+
+export const createOfficeMemberBodyEmailMax = 254;
+
+export const createOfficeMemberBodyUsernameRegExp = new RegExp('^[a-zA-Z0-9._-]{3,32}$');
+export const createOfficeMemberBodyPasswordMin = 8;
+export const createOfficeMemberBodyPasswordMax = 256;
+
+
+
+export const CreateOfficeMemberBody = zod.object({
+  "name": zod.string().min(1).max(createOfficeMemberBodyNameMax),
+  "email": zod.string().email().max(createOfficeMemberBodyEmailMax).optional(),
+  "username": zod.string().regex(createOfficeMemberBodyUsernameRegExp),
+  "password": zod.string().min(createOfficeMemberBodyPasswordMin).max(createOfficeMemberBodyPasswordMax)
+})
+
+export const CreateOfficeMemberResponse = zod.object({
+  "id": zod.number().int(),
+  "clerkUserId": zod.string().nullable(),
+  "username": zod.string().nullable(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['manager', 'engineer']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Set a new password for an office account (manager only)
+ */
+export const ResetOfficeMemberPasswordParams = zod.object({
+  "memberId": zod.coerce.number().int()
+})
+
+export const resetOfficeMemberPasswordBodyPasswordMin = 12;
+export const resetOfficeMemberPasswordBodyPasswordMax = 256;
+
+
+
+export const ResetOfficeMemberPasswordBody = zod.object({
+  "password": zod.string().min(resetOfficeMemberPasswordBodyPasswordMin).max(resetOfficeMemberPasswordBodyPasswordMax)
+})
+
+export const ResetOfficeMemberPasswordResponse = zod.void()
 
 
 /**

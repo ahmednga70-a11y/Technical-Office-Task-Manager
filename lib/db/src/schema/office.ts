@@ -49,7 +49,7 @@ export const officeMembersTable = pgTable(
   "office_members",
   {
     id: serial("id").primaryKey(),
-    clerkUserId: text("clerk_user_id").notNull(),
+    clerkUserId: text("clerk_user_id"),
     name: text("name").notNull(),
     email: text("email").notNull(),
     role: officeRoleEnum("role").notNull().default("engineer"),

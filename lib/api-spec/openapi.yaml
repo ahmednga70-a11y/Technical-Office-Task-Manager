@@ -26,6 +26,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: loginOfficeAccount
+      tags: [office]
+      summary: Sign in to the technical office with a username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeLoginInput"
+      responses:
+        "200":
+          description: Signed-in office member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeMember"
+        "401":
+          description: Invalid username or password
+        "429":
+          description: Too many failed login attempts
+  /auth/me:
+    get:
+      operationId: getOfficeSession
+      tags: [office]
+      summary: Return the current authenticated office member
+      responses:
+        "200":
+          description: Current office member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeMember"
+        "401":
+          description: No active session
+  /auth/logout:
+    post:
+      operationId: logoutOfficeAccount
+      tags: [office]
+      summary: Revoke the current office session
+      responses:
+        "204":
+          description: Session revoked
   /office/profile:
     post:
       operationId: syncOfficeProfile
@@ -58,6 +102,47 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/OfficeMember"
+    post:
+      operationId: createOfficeMember
+      tags: [office]
+      summary: Create an engineer account (manager only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeMemberInput"
+      responses:
+        "201":
+          description: Engineer account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeMember"
+        "409":
+          description: Username is already in use
+  /office/members/{memberId}/password:
+    parameters:
+      - name: memberId
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      operationId: resetOfficeMemberPassword
+      tags: [office]
+      summary: Set a new password for an office account (manager only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficePasswordResetInput"
+      responses:
+        "204":
+          description: Password updated and existing sessions revoked
+        "404":
+          description: Password account not found
   /office/invitations:
     get:
       operationId: listOfficeInvitations
@@ -495,14 +580,54 @@ components:
           format: email
     OfficeMember:
       type: object
-      required: [id, name, email, role, createdAt]
+      required: [id, name, email, role, createdAt, clerkUserId, username]
       properties:
         id: { type: integer }
-        clerkUserId: { type: string }
+        clerkUserId: { type: ["string", "null"] }
+        username: { type: ["string", "null"] }
         name: { type: string }
         email: { type: string }
         role: { type: string, enum: [manager, engineer] }
         createdAt: { type: string, format: date-time }
+    OfficeLoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 256
+    OfficeMemberInput:
+      type: object
+      required: [name, username, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        username:
+          type: string
+          pattern: "^[a-zA-Z0-9._-]{3,32}$"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 256
+    OfficePasswordResetInput:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 12
+          maxLength: 256
     OfficeInvitation:
       type: object
       required: [id, email, status, createdAt, expiresAt]

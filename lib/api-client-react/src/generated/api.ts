@@ -28,9 +28,12 @@ import type {
   OfficeAttachmentUploadInput,
   OfficeInvitation,
   OfficeInvitationInput,
+  OfficeLoginInput,
   OfficeMember,
+  OfficeMemberInput,
   OfficeNotificationInbox,
   OfficeNotificationRead,
+  OfficePasswordResetInput,
   OfficeProfileInput,
   Project,
   ProjectDetails,
@@ -148,6 +151,245 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getLoginOfficeAccountUrl = () => {
+
+
+
+
+  return `/api/auth/login`
+}
+
+/**
+ * @summary Sign in to the technical office with a username and password
+ */
+export const loginOfficeAccount = async (officeLoginInput: OfficeLoginInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeMember>(getLoginOfficeAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeLoginInput)
+  }
+);}
+
+
+
+
+
+export const getLoginOfficeAccountMutationKey = () => ['loginOfficeAccount'] as const;
+
+export const getLoginOfficeAccountMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginOfficeAccount>>, TError,LoginOfficeAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof loginOfficeAccount>>, TError,LoginOfficeAccountMutationVariables, TContext> => {
+
+const mutationKey = getLoginOfficeAccountMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginOfficeAccount>>, LoginOfficeAccountMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  loginOfficeAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginOfficeAccountMutationResult = NonNullable<Awaited<ReturnType<typeof loginOfficeAccount>>>
+    export type LoginOfficeAccountMutationBody = BodyType<OfficeLoginInput>
+    export type LoginOfficeAccountMutationError = ErrorType<void>
+    export type LoginOfficeAccountMutationVariables = {data: BodyType<OfficeLoginInput>}
+
+    /**
+ * @summary Sign in to the technical office with a username and password
+ */
+export const useLoginOfficeAccount = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginOfficeAccount>>, TError,LoginOfficeAccountMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof loginOfficeAccount>>,
+        TError,
+        LoginOfficeAccountMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLoginOfficeAccountMutationOptions(options));
+    }
+
+export const getGetOfficeSessionUrl = () => {
+
+
+
+
+  return `/api/auth/me`
+}
+
+/**
+ * @summary Return the current authenticated office member
+ */
+export const getOfficeSession = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeMember> => {
+
+  return customFetch<OfficeMember>(getGetOfficeSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeSessionQueryKey = () => {
+    return [
+    `/api/auth/me`
+    ] as const;
+    }
+
+
+export const getGetOfficeSessionQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeSession>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeSessionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeSession>>> = ({ signal }) => getOfficeSession({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeSession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeSession>>>
+export type GetOfficeSessionQueryError = ErrorType<void>
+
+
+/**
+ * @summary Return the current authenticated office member
+ */
+
+export function useGetOfficeSession<TData = Awaited<ReturnType<typeof getOfficeSession>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeSessionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLogoutOfficeAccountUrl = () => {
+
+
+
+
+  return `/api/auth/logout`
+}
+
+/**
+ * @summary Revoke the current office session
+ */
+export const logoutOfficeAccount = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLogoutOfficeAccountUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLogoutOfficeAccountMutationKey = () => ['logoutOfficeAccount'] as const;
+
+export const getLogoutOfficeAccountMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutOfficeAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logoutOfficeAccount>>, TError,void, TContext> => {
+
+const mutationKey = getLogoutOfficeAccountMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logoutOfficeAccount>>, void> = () => {
+
+
+          return  logoutOfficeAccount(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutOfficeAccountMutationResult = NonNullable<Awaited<ReturnType<typeof logoutOfficeAccount>>>
+
+    export type LogoutOfficeAccountMutationError = ErrorType<unknown>
+
+
+    /**
+ * @summary Revoke the current office session
+ */
+export const useLogoutOfficeAccount = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutOfficeAccount>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logoutOfficeAccount>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLogoutOfficeAccountMutationOptions(options));
+    }
 
 export const getSyncOfficeProfileUrl = () => {
 
@@ -313,6 +555,183 @@ export function useListOfficeMembers<TData = Awaited<ReturnType<typeof listOffic
 
 
 
+
+export const getCreateOfficeMemberUrl = () => {
+
+
+
+
+  return `/api/office/members`
+}
+
+/**
+ * @summary Create an engineer account (manager only)
+ */
+export const createOfficeMember = async (officeMemberInput: OfficeMemberInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeMember> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeMember>(getCreateOfficeMemberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeMemberInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOfficeMemberMutationKey = () => ['createOfficeMember'] as const;
+
+export const getCreateOfficeMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeMember>>, TError,CreateOfficeMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOfficeMember>>, TError,CreateOfficeMemberMutationVariables, TContext> => {
+
+const mutationKey = getCreateOfficeMemberMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOfficeMember>>, CreateOfficeMemberMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createOfficeMember(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOfficeMemberMutationResult = NonNullable<Awaited<ReturnType<typeof createOfficeMember>>>
+    export type CreateOfficeMemberMutationBody = BodyType<OfficeMemberInput>
+    export type CreateOfficeMemberMutationError = ErrorType<void>
+    export type CreateOfficeMemberMutationVariables = {data: BodyType<OfficeMemberInput>}
+
+    /**
+ * @summary Create an engineer account (manager only)
+ */
+export const useCreateOfficeMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeMember>>, TError,CreateOfficeMemberMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOfficeMember>>,
+        TError,
+        CreateOfficeMemberMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOfficeMemberMutationOptions(options));
+    }
+
+export const getResetOfficeMemberPasswordUrl = (memberId: number,) => {
+
+
+
+
+  return `/api/office/members/${memberId}/password`
+}
+
+/**
+ * @summary Set a new password for an office account (manager only)
+ */
+export const resetOfficeMemberPassword = async (memberId: number,
+    officePasswordResetInput: OfficePasswordResetInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getResetOfficeMemberPasswordUrl(memberId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officePasswordResetInput)
+  }
+);}
+
+
+
+
+
+export const getResetOfficeMemberPasswordMutationKey = () => ['resetOfficeMemberPassword'] as const;
+
+export const getResetOfficeMemberPasswordMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetOfficeMemberPassword>>, TError,ResetOfficeMemberPasswordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetOfficeMemberPassword>>, TError,ResetOfficeMemberPasswordMutationVariables, TContext> => {
+
+const mutationKey = getResetOfficeMemberPasswordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetOfficeMemberPassword>>, ResetOfficeMemberPasswordMutationVariables> = (props) => {
+          const {memberId,data} = props ?? {};
+
+          return  resetOfficeMemberPassword(memberId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetOfficeMemberPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetOfficeMemberPassword>>>
+    export type ResetOfficeMemberPasswordMutationBody = BodyType<OfficePasswordResetInput>
+    export type ResetOfficeMemberPasswordMutationError = ErrorType<void>
+    export type ResetOfficeMemberPasswordMutationVariables = {memberId: number;data: BodyType<OfficePasswordResetInput>}
+
+    /**
+ * @summary Set a new password for an office account (manager only)
+ */
+export const useResetOfficeMemberPassword = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetOfficeMemberPassword>>, TError,ResetOfficeMemberPasswordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetOfficeMemberPassword>>,
+        TError,
+        ResetOfficeMemberPasswordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResetOfficeMemberPasswordMutationOptions(options));
+    }
 
 export const getListOfficeInvitationsUrl = () => {
 

@@ -4,6 +4,10 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   CreateProjectBody,
   CreateProjectResponse,
+  CreateOfficeMemberBody,
+  CreateOfficeMemberResponse,
+  ResetOfficeMemberPasswordBody,
+  ResetOfficeMemberPasswordParams,
   CreateOfficeInvitationBody,
   CreateOfficeInvitationResponse,
   CreateTaskCommentBody,
@@ -38,6 +42,8 @@ import {
 } from "@workspace/api-zod";
 import {
   db,
+  officeAccountsTable,
+  officeAuthSessionsTable,
   officeMembersTable,
   officeNotificationsTable,
   projectsTable,
@@ -48,8 +54,10 @@ import {
 import { runDeadlineNotificationSweep } from "../services/deadlineNotifications";
 import { officeSignUpUrl, usesExternalClerk } from "../lib/clerkConfiguration";
 import { officeProfileFailure } from "../lib/officeProfileFailure";
+import { hashOfficePassword } from "../lib/officePasswordAuth";
 
 const router: IRouter = Router();
+const passwordAuthEnabled = process.env.OFFICE_AUTH_MODE === "password";
 const taskStatuses = ["todo", "in_progress", "review", "done"] as const;
 type TaskStatus = (typeof taskStatuses)[number];
 
@@ -62,7 +70,11 @@ function requireAuth(
   res: Response,
   next: (error?: unknown) => void,
 ): void {
-  if (!currentClerkUserId(req)) {
+  if (
+    passwordAuthEnabled
+      ? !req.officeAuthMemberId
+      : !currentClerkUserId(req)
+  ) {
     res.status(401).json({ error: "Sign in is required." });
     return;
   }
@@ -81,6 +93,22 @@ async function findMember(clerkUserId: string) {
 }
 
 export async function requireMember(req: Request, res: Response) {
+  if (passwordAuthEnabled) {
+    if (!req.officeAuthMemberId) {
+      res.status(401).json({ error: "Sign in is required." });
+      return undefined;
+    }
+    const [member] = await db
+      .select()
+      .from(officeMembersTable)
+      .where(eq(officeMembersTable.id, req.officeAuthMemberId))
+      .limit(1);
+    if (!member) {
+      res.status(401).json({ error: "The office account is no longer active." });
+      return undefined;
+    }
+    return member;
+  }
   const userId = currentClerkUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Sign in is required." });
@@ -282,6 +310,15 @@ export async function isConfiguredManager(
   member: Awaited<ReturnType<typeof findMember>>,
 ): Promise<boolean> {
   const managerEmail = configuredManagerEmail();
+  if (passwordAuthEnabled) {
+    return Boolean(
+      member &&
+        managerEmail &&
+        member.role === "manager" &&
+        member.email.trim().toLowerCase() === managerEmail &&
+        req.officeAuthMemberId === member.id,
+    );
+  }
   const clerkUserId = currentClerkUserId(req);
   if (
     !member ||
@@ -325,6 +362,10 @@ export async function requireTaskParticipant(
 
 router.post("/office/profile", async (req, res): Promise<void> => {
   try {
+  if (passwordAuthEnabled) {
+    res.status(404).json({ error: "Profile self-registration is disabled." });
+    return;
+  }
   const parsed = SyncOfficeProfileBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -445,6 +486,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
     SyncOfficeProfileResponse.parse({
       id: member.id,
       clerkUserId: member.clerkUserId,
+      username: null,
       name: member.name,
       email: member.email,
       role: member.role,
@@ -609,6 +651,10 @@ function serializeOfficeInvitation(invitation: {
 }
 
 router.get("/office/invitations", async (req, res): Promise<void> => {
+  if (passwordAuthEnabled) {
+    res.status(404).json({ error: "Email invitations are disabled." });
+    return;
+  }
   const manager = await managerOnly(req, res);
   if (!manager) return;
   const clerk = clerkClient;
@@ -629,6 +675,10 @@ router.get("/office/invitations", async (req, res): Promise<void> => {
 });
 
 router.post("/office/invitations", async (req, res): Promise<void> => {
+  if (passwordAuthEnabled) {
+    res.status(404).json({ error: "Email invitations are disabled." });
+    return;
+  }
   const manager = await managerOnly(req, res);
   if (!manager) return;
   const parsed = CreateOfficeInvitationBody.safeParse(req.body);
@@ -674,6 +724,10 @@ router.post("/office/invitations", async (req, res): Promise<void> => {
 router.delete(
   "/office/invitations/:invitationId",
   async (req, res): Promise<void> => {
+    if (passwordAuthEnabled) {
+      res.status(404).json({ error: "Email invitations are disabled." });
+      return;
+    }
     const manager = await managerOnly(req, res);
     if (!manager) return;
     const params = RevokeOfficeInvitationParams.safeParse(req.params);
@@ -701,15 +755,23 @@ router.get("/office/members", async (_req, res): Promise<void> => {
     res.status(503).json({ error: "Manager email is not configured." });
     return;
   }
-  const members = await db
-    .select()
-    .from(officeMembersTable)
-    .orderBy(officeMembersTable.name);
+  const members = passwordAuthEnabled
+    ? await db
+        .select({ member: officeMembersTable, username: officeAccountsTable.username })
+        .from(officeMembersTable)
+        .leftJoin(
+          officeAccountsTable,
+          eq(officeAccountsTable.memberId, officeMembersTable.id),
+        )
+        .orderBy(officeMembersTable.name)
+    : (await db.select().from(officeMembersTable).orderBy(officeMembersTable.name))
+        .map((member) => ({ member, username: null }));
   res.json(
     ListOfficeMembersResponse.parse(
-      members.map((member) => ({
+      members.map(({ member, username }) => ({
         id: member.id,
         clerkUserId: member.clerkUserId,
+        username,
         name: member.name,
         email: member.email,
         role:
@@ -720,6 +782,149 @@ router.get("/office/members", async (_req, res): Promise<void> => {
       })),
     ),
   );
+});
+
+router.post("/office/members", async (req, res): Promise<void> => {
+  if (!passwordAuthEnabled) {
+    res.status(404).json({ error: "Password accounts are not enabled." });
+    return;
+  }
+  const manager = await managerOnly(req, res);
+  if (!manager) return;
+  const parsed = CreateOfficeMemberBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const username = parsed.data.username.trim().toLowerCase();
+  const name = parsed.data.name.trim();
+  const email = parsed.data.email?.trim().toLowerCase() ?? "";
+  if (!name) {
+    res.status(400).json({ error: "Engineer name is required." });
+    return;
+  }
+  try {
+    const passwordHash = await hashOfficePassword(parsed.data.password);
+    const member = await db.transaction(async (tx) => {
+      let existing: typeof officeMembersTable.$inferSelect | undefined;
+      if (email) {
+        const matches = await tx
+          .select()
+          .from(officeMembersTable)
+          .where(sql`lower(${officeMembersTable.email}) = ${email}`)
+          .limit(2);
+        if (matches.length > 1) {
+          throw Object.assign(new Error("Multiple office profiles match this email."), {
+            code: "OFFICE_PROFILE_CONFLICT",
+          });
+        }
+        existing = matches[0];
+        if (existing?.role === "manager") {
+          throw Object.assign(new Error("Manager profile cannot be reassigned."), {
+            code: "OFFICE_PROFILE_CONFLICT",
+          });
+        }
+        if (existing) {
+          const [existingAccount] = await tx
+            .select({ memberId: officeAccountsTable.memberId })
+            .from(officeAccountsTable)
+            .where(eq(officeAccountsTable.memberId, existing.id))
+            .limit(1);
+          if (existingAccount) {
+            throw Object.assign(new Error("This member already has a password account."), {
+              code: "OFFICE_PROFILE_CONFLICT",
+            });
+          }
+        }
+      }
+      const [created] = existing
+        ? [await tx.update(officeMembersTable)
+            .set({ name })
+            .where(eq(officeMembersTable.id, existing.id))
+            .returning().then(rows => rows[0])]
+        : await tx
+            .insert(officeMembersTable)
+            .values({
+              clerkUserId: null,
+              name,
+              email,
+              role: "engineer",
+            })
+            .returning();
+      if (!created) throw new Error("Unable to create the office member.");
+      await tx.insert(officeAccountsTable).values({
+        memberId: created.id,
+        username,
+        passwordHash,
+        isActive: true,
+      });
+      return created;
+    });
+    res.status(201).json(
+      CreateOfficeMemberResponse.parse({
+        id: member.id,
+        clerkUserId: member.clerkUserId,
+        username,
+        name: member.name,
+        email: member.email,
+        role: "engineer",
+        createdAt: member.createdAt.toISOString(),
+      }),
+    );
+  } catch (error) {
+    const dbError = error as { code?: string };
+    if (dbError.code === "23505" || dbError.code === "OFFICE_PROFILE_CONFLICT") {
+      res.status(409).json({
+        error: dbError.code === "23505"
+          ? "اسم المستخدم مستخدم بالفعل."
+          : "البريد مرتبط بعضو موجود أو بحساب آخر.",
+      });
+      return;
+    }
+    throw error;
+  }
+});
+
+router.patch("/office/members/:memberId/password", async (req, res): Promise<void> => {
+  if (!passwordAuthEnabled) {
+    res.status(404).json({ error: "Password accounts are not enabled." });
+    return;
+  }
+  const manager = await managerOnly(req, res);
+  if (!manager) return;
+  const params = ResetOfficeMemberPasswordParams.safeParse(req.params);
+  const parsed = ResetOfficeMemberPasswordBody.safeParse(req.body);
+  if (!params.success || !parsed.success) {
+    res.status(400).json({ error: "Invalid member ID or password." });
+    return;
+  }
+  const [account] = await db
+    .select({ memberId: officeAccountsTable.memberId })
+    .from(officeAccountsTable)
+    .where(eq(officeAccountsTable.memberId, params.data.memberId))
+    .limit(1);
+  if (!account) {
+    res.status(404).json({ error: "Password account not found." });
+    return;
+  }
+  const passwordHash = await hashOfficePassword(parsed.data.password);
+  const now = new Date();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(officeAccountsTable)
+      .set({ passwordHash, updatedAt: now })
+      .where(eq(officeAccountsTable.memberId, params.data.memberId));
+    await tx
+      .update(officeAuthSessionsTable)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(officeAuthSessionsTable.memberId, params.data.memberId),
+          isNull(officeAuthSessionsTable.revokedAt),
+        ),
+      );
+  });
+  res.status(204).send();
 });
 
 router.get("/office/dashboard", async (_req, res): Promise<void> => {

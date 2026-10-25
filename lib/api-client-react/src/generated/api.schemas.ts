@@ -25,11 +25,52 @@ export const OfficeMemberRole = {
 
 export interface OfficeMember {
   id: number;
-  clerkUserId?: string;
+  /** @nullable */
+  clerkUserId: string | null;
+  /** @nullable */
+  username: string | null;
   name: string;
   email: string;
   role: OfficeMemberRole;
   createdAt: string;
+}
+
+export interface OfficeLoginInput {
+  /**
+     * @minLength 1
+     * @maxLength 254
+     */
+  username: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  password: string;
+}
+
+export interface OfficeMemberInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxLength 254 */
+  email?: string;
+  /** @pattern ^[a-zA-Z0-9._-]{3,32}$ */
+  username: string;
+  /**
+     * @minLength 8
+     * @maxLength 256
+     */
+  password: string;
+}
+
+export interface OfficePasswordResetInput {
+  /**
+     * @minLength 12
+     * @maxLength 256
+     */
+  password: string;
 }
 
 export type OfficeInvitationStatus = typeof OfficeInvitationStatus[keyof typeof OfficeInvitationStatus];

@@ -2,13 +2,14 @@ import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { getTableColumns, getTableName } from "drizzle-orm";
 import {
-  pool, officeMembersTable, projectsTable, tasksTable, taskCommentsTable,
+  pool, officeAccountsTable, officeAuthLoginAttemptsTable, officeAuthSessionsTable,
+  officeMembersTable, projectsTable, tasksTable, taskCommentsTable,
   taskActivityTable, officeNotificationsTable, officeAttachmentsTable,
 } from "@workspace/db";
 import { isOfficeSchemaReady } from "../lib/schemaReadiness";
 
 const router: IRouter = Router();
-const expectedSchema = Object.fromEntries([
+const officeSchema = Object.fromEntries([
   officeMembersTable, projectsTable, tasksTable, taskCommentsTable,
   taskActivityTable, officeNotificationsTable, officeAttachmentsTable,
 ].map(table => [
@@ -24,6 +25,19 @@ async function checkReadiness(): Promise<Readiness> {
   if (readinessInFlight) return readinessInFlight;
   readinessInFlight = (async (): Promise<Readiness> => {
     try {
+      const expectedSchema = process.env.OFFICE_AUTH_MODE === "password"
+        ? {
+            ...officeSchema,
+            ...Object.fromEntries([
+              officeAccountsTable,
+              officeAuthSessionsTable,
+              officeAuthLoginAttemptsTable,
+            ].map(table => [
+              getTableName(table),
+              Object.values(getTableColumns(table)).map(column => column.name),
+            ])),
+          }
+        : officeSchema;
       // Metadata only: no office rows, identity tokens, or secret values.
       const query = {
         text: "select table_name, column_name from information_schema.columns where table_schema = 'public' and table_name = any($1::text[])",

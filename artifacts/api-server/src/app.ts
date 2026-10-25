@@ -7,6 +7,7 @@ import router from "./routes";
 import healthRouter from "./routes/health";
 import { logger } from "./lib/logger";
 import { externalClerkConfiguration, usesExternalClerk } from "./lib/clerkConfiguration";
+import { officePasswordSessionMiddleware } from "./lib/officePasswordAuth";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -14,6 +15,7 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 
 const app: Express = express();
+const passwordAuthEnabled = process.env.OFFICE_AUTH_MODE === "password";
 
 app.use(
   pinoHttp({
@@ -36,14 +38,16 @@ app.use(
 );
 // Liveness must not depend on auth credentials, sessions, or database access.
 app.use("/api", healthRouter);
-if (!usesExternalClerk()) {
+if (!passwordAuthEnabled && !usesExternalClerk()) {
   app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 }
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-if (usesExternalClerk()) {
+if (passwordAuthEnabled) {
+  app.use("/api", officePasswordSessionMiddleware);
+} else if (usesExternalClerk()) {
   const config = externalClerkConfiguration();
   if (config.publishableKey && config.secretKey) {
     // External Clerk uses its own instance domain; never manufacture a

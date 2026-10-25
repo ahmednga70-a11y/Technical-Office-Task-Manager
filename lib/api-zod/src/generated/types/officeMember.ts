@@ -9,7 +9,10 @@ import type { OfficeMemberRole } from './officeMemberRole';
 
 export interface OfficeMember {
   id: number;
-  clerkUserId?: string;
+  /** @nullable */
+  clerkUserId: string | null;
+  /** @nullable */
+  username: string | null;
   name: string;
   email: string;
   role: OfficeMemberRole;

@@ -24,6 +24,12 @@ import TaskDiscussionDialog from '@/components/TaskDiscussionDialog';
 import NotificationBell from '@/components/NotificationBell';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
 import AuthStatus from '@/components/AuthStatus';
+import {
+  OfficePasswordAuthProvider,
+  PasswordSignInPage,
+  PasswordTeamPage,
+  useOfficePasswordAuth,
+} from '@/components/OfficePasswordAuth';
 import { classifyOfficeAccessFailure, type OfficeAccessFailure } from '@/lib/office-access-failure';
 import NotFound from '@/pages/not-found';
 import '@/index.css';
@@ -33,6 +39,7 @@ const OfficeMemberContext = createContext<OfficeMember | null>(null);
 type OfficeAccessState = 'checking' | 'member' | 'blocked' | 'signed-out';
 const OfficeAccessContext = createContext<{ state: OfficeAccessState; failure?: OfficeAccessFailure }>({ state: 'checking' });
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+const passwordAuthEnabled = import.meta.env.VITE_OFFICE_AUTH_MODE === 'password';
 const externalClerk = import.meta.env.VITE_CLERK_AUTH_MODE === 'external';
 const clerkPubKey = externalClerk
   ? import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim()
@@ -161,6 +168,8 @@ function SignUpPage() {
 }
 
 function HomePage() {
+  const entryPath = passwordAuthEnabled ? '/sign-in' : '/sign-up';
+  const entryLabel = passwordAuthEnabled ? 'دخول المهندسين' : 'ابدأ مساحة العمل';
   return <main className="min-h-[100dvh] overflow-hidden bg-[#f7f5ed]" dir="rtl">
     <header className="mx-auto flex max-w-[1320px] items-center justify-between px-6 py-6 md:px-10">
       <Brand />
@@ -170,7 +179,7 @@ function HomePage() {
       </nav>
       <div className="flex gap-2">
         <Link href="/sign-in" className="btn btn-ghost">دخول</Link>
-        <Link href="/sign-up" className="btn btn-primary">ابدأ مساحة العمل <ArrowLeft size={16} /></Link>
+        {!passwordAuthEnabled&&<Link href={entryPath} className="btn btn-primary">{entryLabel} <ArrowLeft size={16} /></Link>}
       </div>
     </header>
     <section className="landing-grid relative mx-auto grid min-h-[610px] max-w-[1320px] grid-cols-1 items-center gap-12 px-6 pb-16 pt-10 md:grid-cols-[1.08fr_.92fr] md:px-10 md:pb-24">
@@ -185,7 +194,7 @@ function HomePage() {
           فريق المكتب الفنى يجمع المشاريع والمهام والمسؤوليات في مكان واحد. عشان كل مهندس يعرف عليه إيه، والمدير يشوف الصورة كاملة من غير رسائل متفرقة.
         </p>
         <div className="mt-9 flex flex-wrap items-center gap-4">
-          <Link href="/sign-up" className="btn btn-primary px-6 py-4 text-base">أنشئ مساحة مكتبك <ArrowLeft size={18} /></Link>
+          <Link href={entryPath} className="btn btn-primary px-6 py-4 text-base">{passwordAuthEnabled?'دخول المهندسين':'أنشئ مساحة مكتبك'} <ArrowLeft size={18} /></Link>
           <span className="text-xs font-semibold text-[#84908a]">مصمم لشغل الفرق الهندسية اليومية</span>
         </div>
         <div className="mt-14 flex items-center gap-8 border-t border-[#dcdace] pt-6">
@@ -231,25 +240,57 @@ function HomePage() {
           {['رسومات تنفيذية','اعتمادات مواد','استفسارات فنية','حصر كميات','تنسيق مواقع','ومهام أخرى'].map((x,i)=><div className="flex items-center gap-3 rounded-xl border border-[#d8d7ca] bg-[#f7f5ed]/80 p-3 text-sm font-bold text-[#425c56]" key={x}><span className="font-mono text-[10px] text-[#dc7c54]">0{i+1}</span>{x}</div>)}
         </div>
       </div>
-      <div><span className="text-xs font-bold tracking-widest text-[#d77850]">مبني على واقع شغلك</span><h2 className="mt-5 text-4xl font-extrabold leading-[1.5] tracking-tight text-[#203b39] md:text-5xl">مساحة تعرف لغة المشروع.</h2><p className="mt-5 text-base leading-8 text-[#6d7a74]">من الرسومات التنفيذية والـ RFI لحد حصر الكميات والتنسيق، رتّب شغل الفريق بنفس التصنيفات اللي بتستخدموها كل يوم.</p><Link href="/sign-up" className="mt-8 inline-flex items-center gap-2 font-bold text-[#285e59] no-underline">ابدأ بتنظيم شغلك <ArrowLeft size={17} /></Link></div>
+      <div><span className="text-xs font-bold tracking-widest text-[#d77850]">مبني على واقع شغلك</span><h2 className="mt-5 text-4xl font-extrabold leading-[1.5] tracking-tight text-[#203b39] md:text-5xl">مساحة تعرف لغة المشروع.</h2><p className="mt-5 text-base leading-8 text-[#6d7a74]">من الرسومات التنفيذية والـ RFI لحد حصر الكميات والتنسيق، رتّب شغل الفريق بنفس التصنيفات اللي بتستخدموها كل يوم.</p><Link href={entryPath} className="mt-8 inline-flex items-center gap-2 font-bold text-[#285e59] no-underline">{passwordAuthEnabled?'دخول المهندسين':'ابدأ بتنظيم شغلك'} <ArrowLeft size={17} /></Link></div>
     </section>
     <footer className="border-t border-[#dedbcf] bg-[#f0eee5]"><div className="mx-auto flex max-w-[1320px] flex-col gap-5 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-10"><Brand /><span className="text-xs text-[#77827c]">فريق المكتب الفنى — مساحة شغل أوضح للمكاتب الفنية.</span><Link href="/sign-in" className="text-sm font-bold text-[#285e59] no-underline">دخول لمساحة العمل <ArrowLeft size={15} className="inline" /></Link></div></footer>
   </main>;
 }
 
 function NavShell({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+  return passwordAuthEnabled
+    ? <PasswordNavShell>{children}</PasswordNavShell>
+    : <ClerkNavShell>{children}</ClerkNavShell>;
+}
+
+function ClerkNavShell({ children }: { children: ReactNode }) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const { data: members } = useListOfficeMembers();
   const member = members?.find((entry) => entry.clerkUserId === user?.id) ?? null;
+  return <OfficeShell
+    member={member}
+    name={user?.fullName || user?.firstName || 'عضو الفريق'}
+    onSignOut={() => signOut({ redirectUrl: basePath || '/' })}
+  >{children}</OfficeShell>;
+}
+
+function PasswordNavShell({ children }: { children: ReactNode }) {
+  const { member, signOut } = useOfficePasswordAuth();
+  return <OfficeShell
+    member={member}
+    name={member?.name || 'عضو الفريق'}
+    onSignOut={() => signOut().catch(() => window.alert('تعذّر تسجيل الخروج. تحقق من الاتصال ثم حاول مرة أخرى.'))}
+  >{children}</OfficeShell>;
+}
+
+function OfficeShell({
+  children,
+  member,
+  name,
+  onSignOut,
+}: {
+  children: ReactNode;
+  member: OfficeMember | null;
+  name: string;
+  onSignOut: () => void | Promise<unknown>;
+}) {
+  const [location] = useLocation();
   const nav = [
     { href: '/dashboard', label: 'لوحة المتابعة', icon: LayoutDashboard },
     { href: '/projects', label: 'المشاريع', icon: BriefcaseBusiness },
     { href: '/tasks', label: 'المهام', icon: ClipboardList },
     ...(member?.role === 'manager' ? [{ href: '/team', label: 'الفريق', icon: Activity }] : []),
   ];
-  const name = user?.fullName || user?.firstName || 'عضو الفريق';
   return <OfficeMemberContext.Provider value={member}><div className="app-shell" dir="rtl">
     <aside className="sidebar">
       <div className="brand-block mb-12 px-2"><Brand inverse /></div>
@@ -262,7 +303,7 @@ function NavShell({ children }: { children: ReactNode }) {
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#d97753] text-xs font-extrabold text-white">{initials(name)}</div>
           <div className="profile-copy min-w-0"><p className="truncate text-xs font-bold text-white">{name}</p><p className="mt-1 text-[10px] text-[#a9bbb5]">{member ? member.role === 'manager' ? 'مدير المكتب الفني' : 'مهندس المكتب الفني' : 'عضو الفريق'}</p></div>
         </div>
-        <button className="nav-link w-full" onClick={() => signOut({ redirectUrl: basePath || '/' })} data-testid="button-sign-out"><LogOut size={18}/><span className="nav-label">تسجيل الخروج</span></button>
+        <button className="nav-link w-full" onClick={onSignOut} data-testid="button-sign-out"><LogOut size={18}/><span className="nav-label">تسجيل الخروج</span></button>
       </div>
     </aside>
     <div className="main-area">
@@ -513,8 +554,20 @@ function TeamPage() {
 }
 
 function Protected({children}:{children:ReactNode}) {
+  return passwordAuthEnabled
+    ? <PasswordProtected>{children}</PasswordProtected>
+    : <ClerkProtected>{children}</ClerkProtected>;
+}
+function ClerkProtected({children}:{children:ReactNode}) {
   const {state:access,failure}=useContext(OfficeAccessContext);
   return <><Show when="signed-in">{access==='member'?children:access==='blocked'?<InvitationRequiredPage failure={failure}/>:<div className="grid min-h-[70vh] place-items-center"><LoaderCircle size={28} className="animate-spin text-[#285e59]"/></div>}</Show><Show when="signed-out"><Redirect to="/"/></Show></>;
+}
+function PasswordProtected({children}:{children:ReactNode}) {
+  const {member,state,failure}=useOfficePasswordAuth();
+  if(state==='checking') return <div className="grid min-h-[70vh] place-items-center"><LoaderCircle size={28} className="animate-spin text-[#285e59]"/></div>;
+  if(state==='failed') return <main className="page-content"><div className="panel p-6 text-center text-sm text-[#a64d40]" role="alert">{failure}</div></main>;
+  if(state==='signed-out'||!member) return <Redirect to="/sign-in"/>;
+  return <OfficeMemberContext.Provider value={member}>{children}</OfficeMemberContext.Provider>;
 }
 function InvitationRequiredPage({failure}:{failure?:OfficeAccessFailure}) {
   const {signOut}=useClerk();
@@ -528,7 +581,33 @@ function ManagerOnly({children}:{children:ReactNode}) {
   return member.role==='manager'?children:<Redirect to="/dashboard"/>;
 }
 function HomeRedirect() {
+  return passwordAuthEnabled ? <PasswordHomeRedirect/> : <ClerkHomeRedirect/>;
+}
+function ClerkHomeRedirect() {
   return <><Show when="signed-in"><Redirect to="/dashboard"/></Show><Show when="signed-out"><HomePage/></Show></>;
+}
+function PasswordHomeRedirect() {
+  const {state}=useOfficePasswordAuth();
+  if(state==='checking') return <div className="grid min-h-[70vh] place-items-center"><LoaderCircle size={28} className="animate-spin text-[#285e59]"/></div>;
+  if(state==='signed-in') return <Redirect to="/dashboard"/>;
+  return <HomePage/>;
+}
+function PasswordProviderWithRoutes() {
+  return <QueryClientProvider client={queryClient}>
+    <OfficePasswordAuthProvider>
+      <Switch>
+        <Route path="/" component={PasswordHomeRedirect}/>
+        <Route path="/sign-in/*?" component={PasswordSignInPage}/>
+        <Route path="/sign-up/*?" component={()=><Redirect to="/sign-in"/>}/>
+        <Route path="/dashboard"><Protected><NavShell><DashboardPage/></NavShell></Protected></Route>
+        <Route path="/projects"><Protected><NavShell><ProjectsPage/></NavShell></Protected></Route>
+        <Route path="/projects/:projectId"><Protected><NavShell><ProjectDetailsPage/></NavShell></Protected></Route>
+        <Route path="/tasks"><Protected><NavShell><TasksPage/></NavShell></Protected></Route>
+        <Route path="/team"><Protected><NavShell><ManagerOnly><PasswordTeamPage/></ManagerOnly></NavShell></Protected></Route>
+        <Route component={NotFound}/>
+      </Switch>
+    </OfficePasswordAuthProvider>
+  </QueryClientProvider>;
 }
 function ClerkProviderWithRoutes() {
   const [,setLocation]=useLocation();
@@ -554,6 +633,7 @@ function ClerkProviderWithRoutes() {
   </ClerkProvider>;
 }
 function App() {
+  if(passwordAuthEnabled) return <WouterRouter base={basePath}><PasswordProviderWithRoutes/></WouterRouter>;
   if(!clerkPubKey) return <AuthStatus state="missing"/>;
   return <WouterRouter base={basePath}><ClerkProviderWithRoutes/></WouterRouter>;
 }
