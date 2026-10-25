@@ -625,6 +625,16 @@ export const UpdateTaskResponse = zod.object({
 
 
 /**
+ * @summary Delete a task
+ */
+export const DeleteTaskParams = zod.object({
+  "taskId": zod.coerce.number().int()
+})
+
+export const DeleteTaskResponse = zod.void()
+
+
+/**
  * @summary Add a comment to a task
  */
 export const CreateTaskCommentParams = zod.object({
@@ -647,15 +657,5 @@ export const CreateTaskCommentResponse = zod.object({
   "body": zod.string(),
   "createdAt": zod.coerce.date()
 })
-
-
-/**
- * @summary Delete a task
- */
-export const DeleteTaskParams = zod.object({
-  "taskId": zod.coerce.number().int()
-})
-
-export const DeleteTaskResponse = zod.void()
 
 

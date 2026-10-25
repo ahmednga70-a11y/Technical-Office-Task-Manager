@@ -522,6 +522,15 @@ paths:
                 $ref: "#/components/schemas/Task"
         "404":
           description: Task not found
+    delete:
+      operationId: deleteTask
+      tags: [office]
+      summary: Delete a task
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          description: Task not found
   /tasks/{taskId}/comments:
     parameters:
       - name: taskId
@@ -548,15 +557,6 @@ paths:
                 $ref: "#/components/schemas/TaskComment"
         "403":
           description: Task access is restricted to its assignee and the manager
-        "404":
-          description: Task not found
-    delete:
-      operationId: deleteTask
-      tags: [office]
-      summary: Delete a task
-      responses:
-        "204":
-          description: Task deleted
         "404":
           description: Task not found
 components:
