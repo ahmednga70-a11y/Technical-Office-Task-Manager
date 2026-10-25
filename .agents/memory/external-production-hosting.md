@@ -23,6 +23,12 @@ A branch-scoped hosting variable does not prove that its secret connection strin
 
 **How to apply:** Confirm runtime schema readiness against the intended Neon branch before claiming isolation or working login. If runtime reports missing tables that exist on the test branch, investigate the connection target; do not migrate production to hide the mismatch.
 
+An unauthenticated probe of a protected Vercel Preview cannot establish whether application credentials or database readiness are correct.
+
+**Why:** Hosting authentication can reject a request before it reaches the application. Scoped share-link access also depends on completing its redirect and cookie exchange; creating an exception alone does not prove the probe has access.
+
+**How to apply:** Distinguish hosting rejection from application responses. Use only explicitly authorized, deployment-scoped temporary access for diagnosis, revoke it afterward, and close any test login session. Do not disable project-wide protection merely to test a Preview.
+
 The user confirmed the external application's Neon target: project `technical office`, branch `production`, database `neondb`.
 
 **Why:** The user explicitly confirmed this target before authorizing schema initialization.
