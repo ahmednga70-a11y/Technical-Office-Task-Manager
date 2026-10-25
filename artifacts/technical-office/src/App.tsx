@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, Show, SignIn, SignUp, useClerk, useUser } from '@clerk/react';
+import { ClerkFailed, ClerkLoading, ClerkProvider, Show, SignIn, SignUp, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
@@ -23,6 +23,7 @@ import type { OfficeInvitation, OfficeMember, Project, ProjectInput, Task, TaskI
 import TaskDiscussionDialog from '@/components/TaskDiscussionDialog';
 import NotificationBell from '@/components/NotificationBell';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
+import AuthStatus from '@/components/AuthStatus';
 import NotFound from '@/pages/not-found';
 import '@/index.css';
 
@@ -31,8 +32,11 @@ const OfficeMemberContext = createContext<OfficeMember | null>(null);
 type OfficeAccessState = 'checking' | 'member' | 'blocked' | 'signed-out';
 const OfficeAccessContext = createContext<OfficeAccessState>('checking');
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
-const clerkPubKey = publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+const externalClerk = import.meta.env.VITE_CLERK_AUTH_MODE === 'external';
+const clerkPubKey = externalClerk
+  ? import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim()
+  : publishableKeyFromHost(window.location.hostname, import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+const clerkProxyUrl = externalClerk ? undefined : import.meta.env.VITE_CLERK_PROXY_URL;
 
 const arabicStatus: Record<string, string> = {
   todo: 'لم تبدأ', in_progress: 'قيد التنفيذ', review: 'مراجعة', done: 'مكتملة',
@@ -521,6 +525,8 @@ function ClerkProviderWithRoutes() {
   return <ClerkProvider publishableKey={clerkPubKey} proxyUrl={clerkProxyUrl} appearance={clerkAppearance} signInUrl={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`}
     localization={{signIn:{start:{title:'أهلاً بعودتك',subtitle:'سجّل دخولك لمساحة المكتب الفني'}},signUp:{start:{title:'أنشئ حسابك',subtitle:'ابدأ تنظيم شغل فريقك الهندسي'}}}}
     routerPush={to=>setLocation(stripBase(to))} routerReplace={to=>setLocation(stripBase(to),{replace:true})}>
+     <ClerkLoading><AuthStatus state="loading"/></ClerkLoading>
+     <ClerkFailed><AuthStatus state="failed"/></ClerkFailed>
      <QueryClientProvider client={queryClient}><ClerkQueryClientCacheInvalidator/><ProfileSync>
        <Switch>
         <Route path="/" component={HomeRedirect}/>
@@ -538,7 +544,7 @@ function ClerkProviderWithRoutes() {
   </ClerkProvider>;
 }
 function App() {
-  if(!clerkPubKey) throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in .env file');
+  if(!clerkPubKey) return <AuthStatus state="missing"/>;
   return <WouterRouter base={basePath}><ClerkProviderWithRoutes/></WouterRouter>;
 }
 export default App;

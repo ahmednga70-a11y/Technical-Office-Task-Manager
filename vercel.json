@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/api-server run build:vercel && PORT=3000 BASE_PATH=/ pnpm --filter @workspace/technical-office run build",
+  "buildCommand": "node scripts/validate-vercel-env.mjs && pnpm --filter @workspace/api-server run build:vercel && PORT=3000 BASE_PATH=/ VITE_CLERK_AUTH_MODE=external pnpm --filter @workspace/technical-office run build",
   "outputDirectory": "artifacts/technical-office/dist/public",
   "functions": {
     "api/index.js": {

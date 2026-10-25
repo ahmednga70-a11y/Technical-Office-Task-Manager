@@ -4,7 +4,9 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import router from "./routes";
+import healthRouter from "./routes/health";
 import { logger } from "./lib/logger";
+import { externalClerkConfiguration, usesExternalClerk } from "./lib/clerkConfiguration";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -32,19 +34,39 @@ app.use(
     },
   }),
 );
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+// Liveness must not depend on auth credentials, sessions, or database access.
+app.use("/api", healthRouter);
+if (!usesExternalClerk()) {
+  app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+}
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
+if (usesExternalClerk()) {
+  const config = externalClerkConfiguration();
+  if (config.publishableKey && config.secretKey) {
+    // External Clerk uses its own instance domain; never manufacture a
+    // clerk.<vercel-host> domain or send its keys to the managed proxy.
+    app.use(clerkMiddleware(config));
+  } else {
+    app.use("/api", (_req, res) => {
+      res.status(503).json({
+        error: "Authentication is not configured on this deployment.",
+        code: "AUTH_NOT_CONFIGURED",
+      });
+    });
+  }
+} else {
+  app.use(
+    clerkMiddleware((req) => ({
+      publishableKey: publishableKeyFromHost(
+        getClerkProxyHost(req) ?? "",
+        process.env.CLERK_PUBLISHABLE_KEY,
+      ),
+    })),
+  );
+}
 
 app.use("/api", router);
 

@@ -46,6 +46,7 @@ import {
   tasksTable,
 } from "@workspace/db";
 import { runDeadlineNotificationSweep } from "../services/deadlineNotifications";
+import { officeSignUpUrl, usesExternalClerk } from "../lib/clerkConfiguration";
 
 const router: IRouter = Router();
 const taskStatuses = ["todo", "in_progress", "review", "done"] as const;
@@ -350,11 +351,25 @@ router.post("/office/profile", async (req, res): Promise<void> => {
 
   const member = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(98123451)`);
-    const [existing] = await tx
+    const [existingByIdentity] = await tx
       .select()
       .from(officeMembersTable)
       .where(eq(officeMembersTable.clerkUserId, clerkUserId))
       .limit(1);
+    let existing = existingByIdentity;
+    if (!existing && usesExternalClerk()) {
+      // Existing office membership is the migration allowlist. Only a verified
+      // primary email can reclaim it; keep the internal ID and all task links.
+      const emailMatches = await tx
+        .select()
+        .from(officeMembersTable)
+        .where(sql`lower(${officeMembersTable.email}) = ${verifiedEmail}`)
+        .limit(2);
+      if (emailMatches.length > 1) {
+        return { identityConflict: true as const };
+      }
+      existing = emailMatches[0];
+    }
     if (verifiedEmail === managerEmail) {
       await tx
         .update(officeMembersTable)
@@ -363,7 +378,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
       if (existing) {
         const [updated] = await tx
           .update(officeMembersTable)
-          .set({ name: parsed.data.name, email: verifiedEmail, role: "manager" })
+          .set({ clerkUserId, name: parsed.data.name, email: verifiedEmail, role: "manager" })
           .where(eq(officeMembersTable.id, existing.id))
           .returning();
         return updated;
@@ -382,7 +397,7 @@ router.post("/office/profile", async (req, res): Promise<void> => {
     if (existing) {
       const [updated] = await tx
         .update(officeMembersTable)
-        .set({ name: parsed.data.name, email: verifiedEmail, role: "engineer" })
+        .set({ clerkUserId, name: parsed.data.name, email: verifiedEmail, role: "engineer" })
         .where(eq(officeMembersTable.id, existing.id))
         .returning();
       return updated;
@@ -406,6 +421,13 @@ router.post("/office/profile", async (req, res): Promise<void> => {
     return created;
   });
 
+  if (member && "identityConflict" in member) {
+    res.status(409).json({
+      error: "More than one office profile matches this email. Ask the manager to resolve the duplicate profiles.",
+      code: "OFFICE_IDENTITY_CONFLICT",
+    });
+    return;
+  }
   if (!member) {
     res.status(403).json({
       error: "An active invitation for this verified email is required.",
@@ -620,7 +642,7 @@ router.post("/office/invitations", async (req, res): Promise<void> => {
     const clerk = clerkClient;
     const invitation = await clerk.invitations.createInvitation({
       emailAddress: email,
-      redirectUrl: "/technical-office/sign-up",
+      redirectUrl: officeSignUpUrl(req),
       ignoreExisting: true,
       publicMetadata: {
         officeWorkspace: "technical-office",
