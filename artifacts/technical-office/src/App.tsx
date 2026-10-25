@@ -24,13 +24,14 @@ import TaskDiscussionDialog from '@/components/TaskDiscussionDialog';
 import NotificationBell from '@/components/NotificationBell';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
 import AuthStatus from '@/components/AuthStatus';
+import { classifyOfficeAccessFailure, type OfficeAccessFailure } from '@/lib/office-access-failure';
 import NotFound from '@/pages/not-found';
 import '@/index.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 20_000, retry: 1 } } });
 const OfficeMemberContext = createContext<OfficeMember | null>(null);
 type OfficeAccessState = 'checking' | 'member' | 'blocked' | 'signed-out';
-const OfficeAccessContext = createContext<OfficeAccessState>('checking');
+const OfficeAccessContext = createContext<{ state: OfficeAccessState; failure?: OfficeAccessFailure }>({ state: 'checking' });
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 const externalClerk = import.meta.env.VITE_CLERK_AUTH_MODE === 'external';
 const clerkPubKey = externalClerk
@@ -121,21 +122,28 @@ function ProfileSync({children}:{children:ReactNode}) {
   const { user, isLoaded, isSignedIn } = useUser();
   const sync = useSyncOfficeProfile();
   const client = useQueryClient();
-  const [access,setAccess]=useState<OfficeAccessState>('checking');
+  const [access,setAccess]=useState<{ state: OfficeAccessState; failure?: OfficeAccessFailure }>({ state: 'checking' });
+  const primaryEmail = user?.primaryEmailAddress?.emailAddress;
+  const primaryVerification = user?.primaryEmailAddress?.verification.status;
   useEffect(() => {
-    if (!isLoaded) { setAccess('checking'); return; }
-    if (!isSignedIn || !user) { setAccess('signed-out'); return; }
+    let active = true;
+    if (!isLoaded) { setAccess({ state: 'checking' }); return; }
+    if (!isSignedIn || !user) { setAccess({ state: 'signed-out' }); return; }
     const email = user.primaryEmailAddress?.emailAddress || user.emailAddresses[0]?.emailAddress || '';
-    if (!email) { setAccess('blocked'); return; }
-    setAccess('checking');
+    if (!email) { setAccess({ state: 'blocked', failure: classifyOfficeAccessFailure({ status: 403 }) }); return; }
+    setAccess({ state: 'checking' });
     sync.mutate({ data: { name: user.fullName || user.firstName || email.split('@')[0], email } }, {
       onSuccess: () => {
-        setAccess('member');
+        if (!active) return;
+        setAccess({ state: 'member' });
         client.invalidateQueries({ queryKey: getListOfficeMembersQueryKey() });
       },
-      onError: () => setAccess('blocked'),
+      onError: error => {
+        if (active) setAccess({ state: 'blocked', failure: classifyOfficeAccessFailure(error) });
+      },
     });
-  }, [isLoaded, isSignedIn, user?.id]);
+    return () => { active = false; };
+  }, [isLoaded, isSignedIn, user?.id, primaryEmail, primaryVerification]);
   return <OfficeAccessContext.Provider value={access}>{children}</OfficeAccessContext.Provider>;
 }
 
@@ -505,12 +513,14 @@ function TeamPage() {
 }
 
 function Protected({children}:{children:ReactNode}) {
-  const access=useContext(OfficeAccessContext);
-  return <><Show when="signed-in">{access==='member'?children:access==='blocked'?<InvitationRequiredPage/>:<div className="grid min-h-[70vh] place-items-center"><LoaderCircle size={28} className="animate-spin text-[#285e59]"/></div>}</Show><Show when="signed-out"><Redirect to="/"/></Show></>;
+  const {state:access,failure}=useContext(OfficeAccessContext);
+  return <><Show when="signed-in">{access==='member'?children:access==='blocked'?<InvitationRequiredPage failure={failure}/>:<div className="grid min-h-[70vh] place-items-center"><LoaderCircle size={28} className="animate-spin text-[#285e59]"/></div>}</Show><Show when="signed-out"><Redirect to="/"/></Show></>;
 }
-function InvitationRequiredPage() {
+function InvitationRequiredPage({failure}:{failure?:OfficeAccessFailure}) {
   const {signOut}=useClerk();
-  return <main className="grid min-h-[100dvh] place-items-center bg-[#f7f5ed] px-5 py-12" dir="rtl"><section className="panel w-full max-w-lg p-8 text-center"><div className="mx-auto flex w-fit"><Brand/></div><div className="mx-auto mt-8 grid h-14 w-14 place-items-center rounded-2xl bg-[#f8e9df] text-[#a64d40]"><CircleAlert size={25}/></div><h1 className="mt-5 text-2xl font-extrabold text-[#203b39]">الدخول بدعوة فقط</h1><p className="mt-3 text-sm leading-7 text-[#71807a]">الحساب مش مرتبط بمساحة المكتب. اطلب من المدير يرسل لك دعوة على بريدك، وبعدها افتح رابط الدعوة اللي هيوصلك.</p><div className="mt-6 flex flex-wrap justify-center gap-2"><button className="btn btn-primary" onClick={()=>window.location.reload()}>إعادة التحقق</button><button className="btn btn-soft" onClick={()=>signOut({redirectUrl:basePath||'/'})}>تسجيل الخروج</button><Link href="/" className="btn btn-soft">الصفحة الرئيسية</Link></div></section></main>;
+  const {user}=useUser();
+  const issue=failure??classifyOfficeAccessFailure(undefined);
+  return <main className="grid min-h-[100dvh] place-items-center bg-[#f7f5ed] px-5 py-12" dir="rtl"><section className="panel w-full max-w-lg p-8 text-center" role="alert" data-testid={`office-access-${issue.kind}`}><div className="mx-auto flex w-fit"><Brand/></div><div className="mx-auto mt-8 grid h-14 w-14 place-items-center rounded-2xl bg-[#f8e9df] text-[#a64d40]"><CircleAlert size={25}/></div><h1 className="mt-5 text-2xl font-extrabold text-[#203b39]">{issue.title}</h1><p className="mt-3 text-sm leading-7 text-[#71807a]">{issue.description}</p>{user?.primaryEmailAddress?.emailAddress&&<p className="mt-4 break-all text-sm text-[#304743]" data-testid="office-access-current-email">الحساب الحالي: <span dir="ltr">{user.primaryEmailAddress.emailAddress}</span></p>}{issue.status&&<p className="mt-2 text-xs text-[#87918b]" data-testid="office-access-status">رمز الاستجابة: {issue.status}</p>}<div className="mt-6 flex flex-wrap justify-center gap-2"><button className="btn btn-primary" onClick={()=>window.location.reload()}>إعادة التحقق</button><button className="btn btn-soft" onClick={()=>signOut({redirectUrl:basePath||'/'})}>تسجيل الخروج</button><Link href="/" className="btn btn-soft">الصفحة الرئيسية</Link></div></section></main>;
 }
 function ManagerOnly({children}:{children:ReactNode}) {
   const member=useContext(OfficeMemberContext);
