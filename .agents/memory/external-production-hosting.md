@@ -17,6 +17,12 @@ Check external database schema readiness independently from successful page rend
 
 **How to apply:** Inspect only schema metadata first, confirm the actual target branch/database, and review an additive migration before authorizing any production writes.
 
+The user confirmed the external application's Neon target: project `technical office`, branch `production`, database `neondb`.
+
+**Why:** The user explicitly confirmed this target before authorizing schema initialization.
+
+**How to apply:** Use this to distinguish the application's database from unrelated Neon projects. Reconfirm the live connection if hosting settings change; this confirmation does not authorize future schema changes.
+
 Independent Clerk's production instance requires a user-owned domain and DNS setup; a `*.vercel.app` URL supports development-key testing, not final production authentication.
 
 **Why:** Clerk's official Vercel deployment guide explicitly disallows its production instance on `*.vercel.app`, since the required DNS records cannot be set there. Source: https://clerk.com/docs/guides/development/deployment/vercel
