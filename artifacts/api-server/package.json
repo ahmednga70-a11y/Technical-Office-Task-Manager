@@ -3,13 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-"scripts": {
+  "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
-    "build:vercel": "pnpm run typecheck:vercel && node ./build-vercel.mjs",
+    "build:vercel": "node ./build_vercel.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "typecheck:vercel": "tsc --noEmit --module NodeNext --moduleResolution NodeNext --target es2022 --esModuleInterop --skipLibCheck src/vercel-entry.ts"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@clerk/express": "^2.1.82",
