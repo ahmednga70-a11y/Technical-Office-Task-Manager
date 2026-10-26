@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Bell, Check, Clock3, FileCheck2, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, Bell, Check, Clock3, FileCheck2, RotateCcw, Volume2, VolumeX, X } from 'lucide-react';
 import { Link } from 'wouter';
 import {
   getListOfficeNotificationsQueryKey,
@@ -8,6 +9,7 @@ import {
   useMarkOfficeNotificationRead,
 } from '@workspace/api-client-react';
 import type { OfficeNotification } from '@workspace/api-client-react';
+import { useNotificationSound } from '@/hooks/use-notification-sound';
 
 const notificationCopy: Record<OfficeNotification['type'], { label: string; tone: string; icon: typeof Bell }> = {
   task_assigned: { label: 'تكليف جديد', tone: 'assigned', icon: Bell },
@@ -30,11 +32,10 @@ function formatRelativeTime(value: string) {
   return formatter.format(Math.round(hours / 24), 'day');
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ memberId }: { memberId?: number }) {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [actionError, setActionError] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
   const queryKey = getListOfficeNotificationsQueryKey();
   const notificationsQuery = useListOfficeNotifications({
     query: {
@@ -45,31 +46,10 @@ export default function NotificationBell() {
   });
   const markRead = useMarkOfficeNotificationRead();
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (event.target instanceof Node && !containerRef.current?.contains(event.target)) {
-        setIsOpen(false);
-        setActionError('');
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-        setActionError('');
-      }
-    };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [isOpen]);
-
   const inbox = notificationsQuery.data;
   const unreadCount = Math.max(0, inbox?.unreadCount ?? 0);
   const notifications = inbox?.notifications ?? [];
+  const sound = useNotificationSound(memberId, inbox?.notifications);
 
   const closeDropdown = () => {
     setIsOpen(false);
@@ -92,24 +72,22 @@ export default function NotificationBell() {
   };
 
   return (
-    <div ref={containerRef} className="relative z-40" dir="rtl">
+    <Dialog.Root open={isOpen} onOpenChange={(open) => { setIsOpen(open); setActionError(''); }}>
+    <div className="relative" dir="rtl">
+      <Dialog.Trigger asChild>
       <button
         type="button"
-        className="relative grid h-10 w-10 place-items-center rounded-xl border border-[#e0ded4] bg-[#fbfaf5] text-[#52756d] transition hover:border-[#b8c9be] hover:bg-[#f3f3eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469] focus-visible:ring-offset-2"
+        className={`relative grid h-11 w-11 place-items-center rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469] focus-visible:ring-offset-2 ${unreadCount > 0 ? 'border-[#d97753] bg-[#fff1e7] text-[#93432e]' : 'border-[#e0ded4] bg-[#fbfaf5] text-[#52756d] hover:bg-[#f3f3eb]'}`}
         aria-label={unreadCount > 0 ? `الإشعارات، ${unreadCount} غير مقروء` : 'الإشعارات'}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls="office-notifications-panel"
-        onClick={() => {
-          setIsOpen((open) => !open);
-          setActionError('');
-        }}
         data-testid="button-notifications"
       >
-        <Bell size={17} aria-hidden="true" />
+        <Bell size={20} aria-hidden="true" />
         {unreadCount > 0 && (
           <span
-            className="absolute -left-1.5 -top-1.5 grid h-[19px] min-w-[19px] place-items-center rounded-full border-2 border-[#fbfaf5] bg-[#d97753] px-1 text-[9px] font-extrabold leading-none text-white"
+            className="absolute -left-1.5 -top-1.5 grid h-[22px] min-w-[22px] place-items-center rounded-full border-2 border-[#fbfaf5] bg-[#b44e31] px-1 text-[11px] font-extrabold leading-none text-white"
             aria-hidden="true"
             data-testid="badge-notifications-unread"
           >
@@ -117,30 +95,31 @@ export default function NotificationBell() {
           </span>
         )}
       </button>
+      </Dialog.Trigger>
 
-      {isOpen && (
-        <section
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[80] bg-[#152e2b]/45 backdrop-blur-[2px]" />
+        <Dialog.Content
           id="office-notifications-panel"
-          role="dialog"
-          aria-label="الإشعارات"
-          className="absolute left-0 top-[calc(100%+12px)] flex max-h-[min(76dvh,610px)] w-[min(92vw,410px)] flex-col overflow-hidden rounded-[18px] border border-[#e2ded2] bg-[#fbfaf5] shadow-[0_18px_55px_rgba(27,49,45,.18)]"
+          dir="rtl"
+          className="fixed left-1/2 top-1/2 z-[90] flex max-h-[min(85dvh,720px)] w-[calc(100%-24px)] max-w-[460px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[20px] border border-[#ded9cc] bg-[#fffefb] shadow-[0_24px_80px_rgba(16,38,34,.3)] focus:outline-none"
           data-testid="panel-office-notifications"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-[#e8e4d9] bg-[#f5f3eb] px-4 py-3.5 sm:px-5">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-extrabold text-[#294641]">الإشعارات</h2>
+                <Dialog.Title className="text-lg font-extrabold text-[#294641]">التنبيهات</Dialog.Title>
                 {unreadCount > 0 && (
-                  <span className="rounded-full bg-[#e6eee8] px-2 py-0.5 text-[10px] font-bold text-[#426b5e]">
+                  <span className="rounded-full bg-[#ffe7d8] px-2 py-0.5 text-xs font-bold text-[#93432e]">
                     {new Intl.NumberFormat('ar-EG').format(unreadCount)} جديدة
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-[10px] text-[#87918a]">آخر المستجدات في مهام المكتب</p>
+              <Dialog.Description className="mt-1 text-xs text-[#63736a]">التكليفات ومواعيد التسليم ومتابعة المهام</Dialog.Description>
             </div>
             <button
               type="button"
-              className="grid h-8 w-8 place-items-center rounded-lg text-[#78857d] transition hover:bg-[#e9e6dc] hover:text-[#294641] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#ded9cc] bg-white text-[#365e58] transition hover:bg-[#e9e6dc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]"
               onClick={closeDropdown}
               aria-label="إغلاق الإشعارات"
               data-testid="button-close-notifications"
@@ -149,6 +128,18 @@ export default function NotificationBell() {
             </button>
           </header>
 
+          <div className="shrink-0 border-b border-[#e8e4d9] bg-[#f8faf5] px-4 py-3">
+            <button type="button" onClick={sound.toggle} aria-pressed={sound.enabled && sound.ready} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-[#d6e2d9] bg-white px-3 py-2 text-sm font-bold text-[#365e58] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]" data-testid="button-notification-sound">
+              <span className="inline-flex items-center gap-2">
+                {sound.enabled && sound.ready ? <Volume2 size={19} aria-hidden="true" /> : <VolumeX size={19} aria-hidden="true" />}
+                {sound.enabled && sound.ready ? 'صوت التنبيهات مفعّل' : 'تفعيل صوت التنبيهات'}
+              </span>
+              <span className="text-xs font-normal">{sound.enabled && sound.ready ? 'كتم' : 'تشغيل'}</span>
+            </button>
+            <p className={`mt-2 text-xs leading-5 ${sound.error ? 'text-[#a64d40]' : 'text-[#63736a]'}`} role={sound.error ? 'alert' : undefined}>
+              {sound.error || 'الصوت للتنبيهات الجديدة أثناء فتح التطبيق. تفعيله يشغّل نغمة للتجربة.'}
+            </p>
+          </div>
           {actionError && (
             <p className="mx-3 mt-3 flex items-start gap-2 rounded-xl border border-[#efd4cc] bg-[#fbefea] px-3 py-2.5 text-xs leading-5 text-[#9d4f40]" role="alert" data-testid="status-notification-action-error">
               <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -216,8 +207,8 @@ export default function NotificationBell() {
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <span className={`text-[10px] font-bold notification-label-${copy.tone}`}>{copy.label}</span>
-                            <time className="text-[10px] text-[#929990]" dateTime={notification.createdAt}>
+                             <span className={`text-xs font-bold notification-label-${copy.tone}`}>{copy.label}</span>
+                             <time className="text-xs text-[#69766d]" dateTime={notification.createdAt}>
                               {formatRelativeTime(notification.createdAt)}
                             </time>
                           </div>
@@ -227,14 +218,14 @@ export default function NotificationBell() {
                             onClick={closeDropdown}
                             data-testid={`link-notification-task-${notification.id}`}
                           >
-                            <span className="block truncate text-xs font-extrabold leading-5 text-[#304743]">{notification.taskTitle}</span>
-                            <span className="mt-0.5 block truncate text-[10px] text-[#77847c]">{notification.projectName}</span>
-                            <span className="mt-1.5 block break-words text-[11px] leading-[1.7] text-[#65736c]">{notification.message}</span>
+                             <span className="block break-words text-sm font-extrabold leading-6 text-[#203b39]">{notification.taskTitle}</span>
+                             <span className="mt-0.5 block break-words text-xs leading-5 text-[#5d6e63]">{notification.projectName}</span>
+                             <span className="mt-1.5 block break-words text-sm leading-6 text-[#4c6056]">{notification.message}</span>
                           </Link>
                           <div className="mt-2 flex min-h-6 items-center justify-between gap-2">
                             <Link
                               href={`/projects/${notification.projectId}?taskId=${notification.taskId}`}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold text-[#477467] hover:text-[#294641] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]"
+                               className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[#365e58] hover:text-[#294641] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]"
                               onClick={closeDropdown}
                               data-testid={`link-open-notification-${notification.id}`}
                             >
@@ -244,7 +235,7 @@ export default function NotificationBell() {
                             {isUnread && (
                               <button
                                 type="button"
-                                className="rounded-md px-2 py-1 text-[10px] font-bold text-[#7b867e] transition hover:bg-[#e9eee7] hover:text-[#365e58] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469] disabled:cursor-wait disabled:opacity-60"
+                                 className="min-h-11 rounded-lg border border-[#dce3d8] px-2 py-1 text-xs font-bold text-[#52675a] transition hover:bg-[#e9eee7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469] disabled:cursor-wait disabled:opacity-60"
                                 onClick={() => handleMarkRead(notification.id)}
                                 disabled={markRead.isPending}
                                 aria-label={`وضع إشعار ${notification.taskTitle} كمقروء`}
@@ -262,15 +253,15 @@ export default function NotificationBell() {
               </ul>
             )}
           </div>
-          <footer className="flex shrink-0 items-center justify-between border-t border-[#e8e4d9] bg-[#f7f5ee] px-4 py-2.5 text-[10px] text-[#87918a]">
+          <footer className="flex shrink-0 items-center justify-between border-t border-[#e8e4d9] bg-[#f7f5ee] px-4 py-2.5 text-xs text-[#63736a]">
             <span>تتحدّث القائمة كل دقيقة</span>
             <span className="inline-flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-[#6d9a7c]" aria-hidden="true" />
               مساحة المكتب
             </span>
           </footer>
-        </section>
-      )}
+        </Dialog.Content>
+      </Dialog.Portal>
       <style>{`
         .notification-icon-assigned { background: #e7efea; color: #477467; }
         .notification-icon-returned { background: #f5e9df; color: #a96846; }
@@ -284,5 +275,6 @@ export default function NotificationBell() {
         .notification-label-overdue { color: #b85d49; }
       `}</style>
     </div>
+    </Dialog.Root>
   );
 }

@@ -311,7 +311,7 @@ function OfficeShell({
          <div className="flex items-center gap-2 text-xs text-[#87918b]"><span className="text-[#365e58]">مساحة العمل</span><span>/</span><span className="text-[#4f625d]">{location.startsWith('/projects')?'المشاريع':location==='/tasks'?'المهام':location==='/team'?'الفريق':'لوحة المتابعة'}</span></div>
         <div className="flex items-center gap-3">
           <span className="hidden text-xs text-[#77827c] sm:block">{new Intl.DateTimeFormat('ar-EG',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}</span>
-          <NotificationBell />
+          <NotificationBell key={member?.id ?? 'pending'} memberId={member?.id} />
           <button className="mobile-sign-out" onClick={onSignOut} data-testid="button-mobile-sign-out"><LogOut size={16}/><span>خروج</span></button>
         </div>
       </header>
