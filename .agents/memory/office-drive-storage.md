@@ -20,9 +20,21 @@ Production storage selection must be explicit for its deployment target, not
 silently default to the development provider when a host marker is absent.
 
 **Why:** Misclassification can return an unusable upload URL while hiding the
-Drive connection notice. The production incident matched this path, but the
-runtime host-marker value could not be directly observed.
+Drive connection notice. This is a defensive rule, not the verified cause of
+the failed browser uploads.
 
 **How to apply:** Fix provider selection in the host-specific build and disable
 uploads while the storage-readiness check is pending or has failed. Keep error
 messages actionable rather than treating every storage failure as connectivity.
+
+Server-initiated Google Drive resumable upload sessions need the application's
+trusted browser origin on the initiation request.
+
+**Why:** A live authenticated browser test confirmed Drive was connected and
+session creation returned success, but the actual browser PUT failed because
+Google's response omitted Access-Control-Allow-Origin. Unauthenticated health
+checks and successful builds cannot verify this flow.
+
+**How to apply:** Bind the session to the configured application origin, never
+an unchecked request header. Verify the actual browser PUT and completion after
+changes to upload transport; do not infer readiness from connection status.

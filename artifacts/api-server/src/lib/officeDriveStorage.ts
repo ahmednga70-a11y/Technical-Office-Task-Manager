@@ -343,6 +343,10 @@ export async function createOfficeDriveUploadSession(input: {
   size: number;
 }): Promise<string> {
   const { accessToken, connection } = await connectedDriveAccess();
+  // Google binds browser CORS responses to the Origin used to start the
+  // resumable session. This request runs on the server, but the PUT runs in
+  // the browser: explicitly bind it to our configured application origin.
+  const browserOrigin = new URL(googleOAuthConfig().redirectUri).origin;
   const query = new URLSearchParams({
     uploadType: "resumable",
     fields: "id,name,size,mimeType,parents,appProperties,trashed",
@@ -353,6 +357,7 @@ export async function createOfficeDriveUploadSession(input: {
     {
       method: "POST",
       headers: {
+        Origin: browserOrigin,
         "Content-Type": "application/json; charset=UTF-8",
         "X-Upload-Content-Type": input.contentType,
         "X-Upload-Content-Length": String(input.size),
