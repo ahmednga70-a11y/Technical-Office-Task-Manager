@@ -15,3 +15,14 @@ code running on Vercel.
 credentials for the external runtime; never export Replit connector credentials
 or make files public to work around authentication. Do not claim the production
 upload issue is fixed until OAuth and a real file upload/download are verified.
+
+Production storage selection must be explicit for its deployment target, not
+silently default to the development provider when a host marker is absent.
+
+**Why:** Misclassification can return an unusable upload URL while hiding the
+Drive connection notice. The production incident matched this path, but the
+runtime host-marker value could not be directly observed.
+
+**How to apply:** Fix provider selection in the host-specific build and disable
+uploads while the storage-readiness check is pending or has failed. Keep error
+messages actionable rather than treating every storage failure as connectivity.

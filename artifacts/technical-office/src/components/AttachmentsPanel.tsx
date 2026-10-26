@@ -261,6 +261,7 @@ export default function AttachmentsPanel(props: Props) {
 
   const storageNeedsConnection = driveStatusQuery.data?.storageMode === 'google_drive'
     && (!driveStatusQuery.data.configured || !driveStatusQuery.data.connected);
+  const storageStatusUnavailable = driveStatusQuery.isPending || driveStatusQuery.isError;
   const busy = requestUpload.isPending || isPutting || completeUpload.isPending || pendingAttachmentId !== null || isBatchUploading || startDriveConnection.isPending;
 
   return (
@@ -276,14 +277,14 @@ export default function AttachmentsPanel(props: Props) {
           </div>
         </div>
         {props.canUpload && (
-          <label className={`btn btn-primary relative cursor-pointer !px-4 ${busy || storageNeedsConnection ? 'pointer-events-none opacity-60' : ''}`} data-testid="label-upload-attachment">
+          <label className={`btn btn-primary relative cursor-pointer !px-4 ${busy || storageNeedsConnection || storageStatusUnavailable ? 'pointer-events-none opacity-60' : ''}`} data-testid="label-upload-attachment">
             {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Upload size={16} aria-hidden="true" />}
             <span>
               {busy
                 ? uploadProgress
                   ? `جارٍ رفع ${uploadProgress.current.toLocaleString('ar-EG')} من ${uploadProgress.total.toLocaleString('ar-EG')} ملفات`
                   : 'جارٍ الرفع'
-                : 'إرفاق ملفات'}
+                : driveStatusQuery.isPending ? 'جارٍ فحص التخزين' : 'إرفاق ملفات'}
             </span>
             <input
               type="file"
@@ -291,7 +292,7 @@ export default function AttachmentsPanel(props: Props) {
               aria-label="اختر ملفًا أو عدة ملفات لإرفاقها"
               accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.dwg,.dxf"
               multiple
-              disabled={busy || storageNeedsConnection}
+              disabled={busy || storageNeedsConnection || storageStatusUnavailable}
               onChange={handleFileChange}
               data-testid="input-attachment-file"
             />
@@ -300,6 +301,14 @@ export default function AttachmentsPanel(props: Props) {
       </header>
 
       <div className="px-4 py-4 sm:px-5" aria-live="polite">
+        {driveStatusQuery.isError && (
+          <div className="mb-4 rounded-xl border border-[#efd4c9] bg-[#fbefea] px-3 py-3 text-sm leading-6 text-[#a64d40]" role="alert" data-testid="status-storage-unavailable">
+            <p>{apiErrorMessage(driveStatusQuery.error, 'تعذّر فحص جاهزية تخزين الملفات. الرفع متوقف لحين نجاح الفحص.')}</p>
+            <button type="button" className="btn btn-soft mt-3 !px-3 !py-2 text-xs" onClick={() => void driveStatusQuery.refetch()} disabled={driveStatusQuery.isFetching}>
+              إعادة فحص التخزين
+            </button>
+          </div>
+        )}
         {driveStatusQuery.data?.storageMode === 'google_drive' && !driveStatusQuery.data.connected && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ead8bd] bg-[#faf2e4] px-3 py-3 text-sm leading-6 text-[#80643d]" role="status" data-testid="status-drive-connection">
             <span>
@@ -326,7 +335,7 @@ export default function AttachmentsPanel(props: Props) {
         {errorMessage && (
           <div className="mb-4 flex items-start gap-2 rounded-xl border border-[#efd4c9] bg-[#fbefea] px-3 py-3 text-sm leading-6 text-[#a64d40]" role="alert" data-testid="status-attachments-error">
             <AlertCircle size={17} className="mt-1 shrink-0" aria-hidden="true" />
-            <span>{errorMessage}</span>
+            <span className="min-w-0 break-words [overflow-wrap:anywhere]">{errorMessage}</span>
           </div>
         )}
         {successMessage && (
