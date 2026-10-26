@@ -296,7 +296,7 @@ function OfficeShell({
       <div className="brand-block mb-12 px-2"><Brand inverse /></div>
       <p className="side-caption mb-3 px-3 text-[10px] font-bold tracking-[.18em] text-[#9cafaa]">مساحة المكتب</p>
       <nav className="flex flex-col gap-1">
-        {nav.map(({href,label,icon:Icon})=><Link key={href} href={href} className={`nav-link ${location===href || (href==='/projects'&&location.startsWith('/projects/'))?'active':''}`} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18}/><span className="nav-label">{label}</span></Link>)}
+        {nav.map(({href,label,icon:Icon})=><Link key={href} href={href} className={`nav-link ${location===href || (href==='/projects'&&location.startsWith('/projects/'))?'active':''}`} aria-current={location===href || (href==='/projects'&&location.startsWith('/projects/'))?'page':undefined} data-testid={`link-nav-${href.slice(1)}`}><Icon size={18}/><span className="nav-label">{label}</span></Link>)}
       </nav>
       <div className="mt-auto">
         <div className="profile-block mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.04] p-3">
@@ -312,6 +312,7 @@ function OfficeShell({
         <div className="flex items-center gap-3">
           <span className="hidden text-xs text-[#77827c] sm:block">{new Intl.DateTimeFormat('ar-EG',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}</span>
           <NotificationBell />
+          <button className="mobile-sign-out" onClick={onSignOut} data-testid="button-mobile-sign-out"><LogOut size={16}/><span>خروج</span></button>
         </div>
       </header>
       {children}
@@ -352,8 +353,28 @@ function TaskRow({ task, onEdit, onDelete, onDiscussion }: { task: Task; onEdit?
 function DashboardPage() {
   const { data, isLoading, isError, refetch } = useGetOfficeDashboard();
   const projects = useListProjects();
-  if (isLoading) return <main className="page-content"><div className="skeleton mb-8 h-10 w-64"/><div className="grid grid-cols-2 gap-4 md:grid-cols-4">{[1,2,3,4].map(x=><div className="panel p-5" key={x}><div className="skeleton h-3 w-1/2"/><div className="skeleton mt-5 h-8 w-1/3"/></div>)}</div><div className="mt-7"><SkeletonRows/></div></main>;
+  const taskQuery = useListTasks();
+  const member = useContext(OfficeMemberContext);
+  if (isLoading) return <main className="page-content"><div className="skeleton mb-8 h-10 w-64"/><div className="panel mb-6 p-5"><div className="skeleton mb-4 h-5 w-40"/><SkeletonRows count={2}/></div><div className="grid grid-cols-2 gap-4 md:grid-cols-4">{[1,2,3,4].map(x=><div className="panel p-5" key={x}><div className="skeleton h-3 w-1/2"/><div className="skeleton mt-5 h-8 w-1/3"/></div>)}</div><div className="mt-7"><SkeletonRows/></div></main>;
   if (isError||!data) return <main className="page-content"><ErrorState retry={()=>refetch()}/></main>;
+  const allTasks = [...new Map<number, Task>([...(taskQuery.data || []), ...(data.upcomingTasks || []), ...(data.recentTasks || [])].map(task => [task.id, task] as const)).values()];
+  const cairoDateParts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date()).map(part => [part.type, part.value]));
+  const today = `${cairoDateParts.year}-${cairoDateParts.month}-${cairoDateParts.day}`;
+  const weekEndDate = new Date(`${today}T00:00:00.000Z`);
+  weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 7);
+  const weekEnd = weekEndDate.toISOString().slice(0, 10);
+  const dateKey = (value: Task['dueDate']) => new Date(value).toISOString().slice(0, 10);
+  const openTasks = allTasks.filter(task => task.status !== 'done');
+  const overdueTasks = openTasks.filter(task => dateKey(task.dueDate) < today).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const overdueIds = new Set(overdueTasks.map(task=>task.id));
+  const dueSoonTasks = openTasks.filter(task => { const due = dateKey(task.dueDate); return !overdueIds.has(task.id) && due >= today && due <= weekEnd; }).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const priorityIds = new Set([...overdueTasks,...dueSoonTasks].map(task=>task.id));
+  const unassignedTasks = member?.role === 'manager' ? openTasks.filter(task=>task.assigneeId===null&&!priorityIds.has(task.id)).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)) : [];
   const breakdown = ['todo','in_progress','review','done'].map((status)=>({status,count:data.statusBreakdown?.find((x)=>x.status===status)?.count||0}));
   const cards = [
     { label:'مشاريع نشطة', value:data.activeProjectCount, icon:BriefcaseBusiness, color:'#e2efea', accent:'#39736a' },
@@ -363,6 +384,17 @@ function DashboardPage() {
   ];
   return <main className="page-content">
     <PageTitle eyebrow="صباح الشغل المرتّب" title="لوحة المتابعة" description="ملخص سريع للمشاريع والمهام اللي محتاجة عينك." action={<Link href="/tasks" className="btn btn-primary"><ClipboardList size={17}/> عرض المهام</Link>}/>
+    <section className="attention-panel mb-6" aria-labelledby="attention-title">
+      <div className="attention-heading"><div><p className="attention-kicker">الأولوية الآن</p><h2 id="attention-title">ما يحتاج متابعة</h2></div><span className="attention-total">{data.overdueTaskCount + data.dueSoonTaskCount + (member?.role === 'manager' ? unassignedTasks.length : 0)}</span></div>
+      {taskQuery.isLoading && <div className="mt-4"><SkeletonRows count={2}/></div>}
+      {!taskQuery.isLoading && <>
+        <AttentionGroup title="متأخرة" count={data.overdueTaskCount} tasks={overdueTasks} tone="late"/>
+        <AttentionGroup title="تسليم خلال ٧ أيام" count={data.dueSoonTaskCount} tasks={dueSoonTasks} tone="soon"/>
+        {member?.role==='manager'&&<AttentionGroup title="بلا مسؤول" count={unassignedTasks.length} tasks={unassignedTasks} tone="unassigned"/>}
+        {taskQuery.isError&&<p className="mt-3 text-xs text-[#8d5d4f]">تعذر تحميل بعض تفاصيل المهام. الأعداد المعروضة من ملخص المكتب.</p>}
+        {!taskQuery.isError&&!data.overdueTaskCount&&!data.dueSoonTaskCount&&!unassignedTasks.length&&<p className="py-5 text-sm text-[#6f7d75]">لا توجد مهام تحتاج متابعة عاجلة الآن.</p>}
+      </>}
+    </section>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">{cards.map(({label,value,icon:Icon,color,accent},i)=><div className="panel relative overflow-hidden p-4 md:p-5" key={label} data-testid={`stat-${label}`}><span className="absolute -left-4 -top-4 h-20 w-20 rounded-full opacity-60" style={{background:color}}/><div className="relative flex items-start justify-between"><div><p className="text-xs font-semibold text-[#79857e]">{label}</p><strong className="mt-4 block font-mono text-3xl font-semibold text-[#203b39]">{value}</strong></div><span className="grid h-9 w-9 place-items-center rounded-xl" style={{background:color,color:accent}}><Icon size={17}/></span></div><p className="relative mt-3 text-[10px] text-[#8a938c]">{i===0?`${data.projectCount} مشروع في المساحة`:i===1?'موزعة على كل المشاريع':i===2?'اتقفلت واتسلّمت':'محتاجة متابعة قريبة'}</p></div>)}</div>
     <div className="mt-7 grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
       <section className="panel p-5 md:p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="font-bold text-[#304743]">حالة المهام</h2><p className="mt-1 text-xs text-[#87918b]">التوزيع الحالي لشغل الفريق</p></div><Activity size={18} className="text-[#729086]"/></div>
@@ -383,6 +415,11 @@ function DashboardPage() {
       {data.recentTasks?.length?<div>{data.recentTasks.slice(0,4).map(task=><TaskRow task={task} key={task.id}/>)}</div>:<p className="py-6 text-center text-sm text-[#87918b]">لسه مفيش تحديثات جديدة.</p>}
     </section>
   </main>;
+}
+
+function AttentionGroup({title,count,tasks,tone}:{title:string;count:number;tasks:Task[];tone:'late'|'soon'|'unassigned'}) {
+  const toneClass = tone==='late'?'attention-late':tone==='soon'?'attention-soon':'attention-unassigned';
+  return <div className={`attention-group ${toneClass}`}><div className="attention-group-title"><span>{title}</span><strong>{count}</strong></div>{tasks.length?<div className="attention-task-list">{tasks.slice(0,3).map(task=><Link key={task.id} href={`/projects/${task.projectId}`} className="attention-task" data-testid={`attention-task-${task.id}`}><span className="attention-task-copy"><strong>{task.title}</strong><small>{task.projectName}{task.assigneeId===null?' · غير معيّنة':''}</small></span><span className="attention-task-date">{fmtDate(task.dueDate)}</span></Link>)}</div>:<p className="attention-none">لا توجد مهام</p>}</div>;
 }
 
 function ProjectForm({ initial, onClose, onSubmit, busy, error }: { initial?: Project & {description?:string}; onClose:()=>void; onSubmit:(data:ProjectInput & {status?:Project['status']})=>void; busy:boolean; error?:string }) {
@@ -431,7 +468,7 @@ function ProjectsPage() {
 }
 function ProjectCard({project,index}:{project:Project;index:number}) {
   const accents=['#39746a','#c77a50','#8d8a58','#547988'];
-  return <Link href={`/projects/${project.id}`} className="panel group relative overflow-hidden p-5 no-underline transition-transform hover:-translate-y-1" data-testid={`card-project-${project.id}`}><div className="absolute right-0 top-0 h-1 w-full origin-right transition-transform group-hover:scale-x-100" style={{background:accents[index%accents.length]}}/><div className="flex items-start justify-between"><span className="grid h-11 w-11 place-items-center rounded-[14px]" style={{background:`${accents[index%accents.length]}18`,color:accents[index%accents.length]}}><BriefcaseBusiness size={20}/></span><StatusBadge status={project.status}/></div><h2 className="mt-5 truncate text-lg font-extrabold text-[#304743]">{project.name}</h2><p className="mt-1 text-xs text-[#839089]">{project.client||'بدون عميل محدد'}</p><p className="mt-4 flex items-center gap-1 text-xs text-[#77827c]"><MapPin size={13}/>{project.location||'الموقع غير محدد'}</p><div className="mt-6 flex items-center justify-between border-t border-[#e8e5db] pt-4"><div><p className="text-[10px] text-[#8a938c]">تقدم المشروع</p><div className="mt-2 h-1.5 w-36 overflow-hidden rounded-full bg-[#e8e5db]"><span className="block h-full rounded-full bg-[#4f897c]" style={{width:`${Math.min(100,project.progress||0)}%`}}/></div></div><strong className="font-mono text-sm text-[#426c63]">{project.progress||0}%</strong></div><div className="mt-4 flex items-center justify-between text-[11px] text-[#8a938c]"><span>{project.completedTaskCount||0} من {project.taskCount||0} مهمة مكتملة</span><ArrowLeft size={15} className="text-[#6e8d82] transition-transform group-hover:-translate-x-1"/></div></Link>;
+  return <Link href={`/projects/${project.id}`} className="panel project-card group relative overflow-hidden p-5 no-underline transition-transform hover:-translate-y-1" data-testid={`card-project-${project.id}`}><div className="absolute right-0 top-0 h-1 w-full origin-right transition-transform group-hover:scale-x-100" style={{background:accents[index%accents.length]}}/><div className="flex items-start justify-between"><span className="grid h-11 w-11 place-items-center rounded-[14px]" style={{background:`${accents[index%accents.length]}18`,color:accents[index%accents.length]}}><BriefcaseBusiness size={20}/></span><StatusBadge status={project.status}/></div><h2 className="mt-5 truncate text-lg font-extrabold text-[#304743]">{project.name}</h2><p className="mt-1 text-xs text-[#839089]">{project.client||'بدون عميل محدد'}</p><p className="mt-4 flex items-center gap-1 text-xs text-[#77827c]"><MapPin size={13}/>{project.location||'الموقع غير محدد'}</p><div className="project-scanline mt-5"><div className="project-scanline-item"><span>التقدم</span><strong className="font-mono">{project.progress||0}%</strong><span className="project-progress-track"><i style={{width:`${Math.min(100,project.progress||0)}%`}}/></span></div><div className="project-scanline-item"><span>الحالة</span><StatusBadge status={project.status}/></div><div className="project-scanline-item"><span>التسليم</span><strong className="project-delivery"><CalendarDays size={13}/>{fmtDate(project.endDate)}</strong></div></div><div className="mt-4 flex items-center justify-between text-[11px] text-[#8a938c]"><span>{project.completedTaskCount||0} من {project.taskCount||0} مهمة مكتملة</span><ArrowLeft size={15} className="text-[#6e8d82] transition-transform group-hover:-translate-x-1"/></div></Link>;
 }
 
 function ProjectDetailsPage() {
@@ -504,11 +541,13 @@ function TasksPage() {
   const client=useQueryClient();const member=useContext(OfficeMemberContext);const canManage=member?.role==='manager';const query=useListTasks();const projectsQuery=useListProjects();const create=useCreateTask();const update=useUpdateTask();const remove=useDeleteTask();
   const [search,setSearch]=useState('');const [status,setStatus]=useState('all');const [project,setProject]=useState('all');const [modal,setModal]=useState(false);const [editing,setEditing]=useState<Task|undefined>();const [discussionTask,setDiscussionTask]=useState<Task|undefined>();
   const rows=useMemo(()=>query.data?.filter(task=>(status==='all'||task.status===status)&&(project==='all'||task.projectId===Number(project))&&(`${task.title} ${task.projectName} ${task.assigneeName||''}`.toLowerCase().includes(search.toLowerCase())))||[],[query.data,status,project,search]);
+  const hasFilters=Boolean(search.trim())||status!=='all'||project!=='all';
+  const clearFilters=()=>{setSearch('');setStatus('all');setProject('all');};
   const done=()=>{client.invalidateQueries({queryKey:getListTasksQueryKey()});client.invalidateQueries({queryKey:getGetOfficeDashboardQueryKey()});client.invalidateQueries({queryKey:getListProjectsQueryKey()});};
   const onSubmit=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{if('taskId'in value)update.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{done();setModal(false);setEditing(undefined);client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});client.invalidateQueries({queryKey:getListOfficeNotificationsQueryKey()});}});else create.mutate({data:value},{onSuccess:()=>{done();setModal(false);}});};
   const onDelete=(task:Task)=>{if(window.confirm(`حذف المهمة «${task.title}»؟`))remove.mutate({taskId:task.id},{onSuccess:done});};
   return <main className="page-content"><PageTitle eyebrow="التكليفات والمتابعة" title="المهام" description="فلتر شغل الفريق، حدّث الحالات، وخلي كل موعد ظاهر." action={canManage&&<button className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50" disabled={!projectsQuery.data?.length} onClick={()=>{setEditing(undefined);setModal(true);}} data-testid="button-create-task"><Plus size={17}/> مهمة جديدة</button>}/>
-    <div className="panel mb-5 flex flex-wrap gap-3 p-4"><div className="relative min-w-[200px] flex-1"><Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#89928b]"/><input className="field pr-10" placeholder="ابحث عن مهمة أو مشروع أو مسؤول..." value={search} onChange={e=>setSearch(e.target.value)} data-testid="input-search-tasks"/></div><select className="field w-auto min-w-[145px]" value={status} onChange={e=>setStatus(e.target.value)} data-testid="select-filter-status"><option value="all">كل الحالات</option>{Object.entries(arabicStatus).filter(([key])=>['todo','in_progress','review','done'].includes(key)).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><select className="field w-auto min-w-[150px]" value={project} onChange={e=>setProject(e.target.value)} data-testid="select-filter-project"><option value="all">كل المشاريع</option>{projectsQuery.data?.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></div>
+     <div className="panel mb-5 task-filters p-4"><div className="task-filter-controls"><div className="relative min-w-0 flex-1"><Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#89928b]"/><input className="field pr-10" placeholder="ابحث عن مهمة أو مشروع أو مسؤول..." value={search} onChange={e=>setSearch(e.target.value)} data-testid="input-search-tasks"/></div><select className="field task-project-select" value={project} onChange={e=>setProject(e.target.value)} data-testid="select-filter-project"><option value="all">كل المشاريع</option>{projectsQuery.data?.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select>{hasFilters&&<button type="button" className="btn btn-soft task-clear-button" onClick={clearFilters} data-testid="button-clear-task-filters"><X size={15}/> مسح الفلاتر</button>}</div><div className="task-status-choices" role="group" aria-label="اختيار حالة المهام">{[['all','كل الحالات'],...Object.entries(arabicStatus).filter(([key])=>['todo','in_progress','review','done'].includes(key))].map(([value,label])=><button type="button" key={value} className={`task-status-choice ${status===value?'selected':''}`} aria-pressed={status===value} onClick={()=>setStatus(value)} data-testid={`button-filter-status-${value}`}>{label}</button>)}</div></div>
      {query.isLoading?<SkeletonRows/>:query.isError?<ErrorState retry={()=>query.refetch()}/>:rows.length?<section className="panel px-5 py-2 md:px-7"><div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] gap-4 border-b border-[#e6e3d9] py-3 text-[10px] font-bold text-[#929991] max-md:hidden"><span>المهمة / المشروع</span><span>المسؤول</span><span>الحالة</span><span>التسليم</span><span/></div>{rows.map(task=><TaskRow key={task.id} task={task} onEdit={t=>{setEditing(t);setModal(true);}} onDelete={onDelete} onDiscussion={setDiscussionTask}/>)}</section>:<EmptyState title={search||status!=='all'||project!=='all'?'مفيش مهام بالاختيارات دي':'لسه مفيش مهام'} body="ابدأ بتكليف جديد، أو غيّر الفلاتر عشان تظهر نتائج أكتر." action={canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}><Plus size={15}/> مهمة جديدة</button>}/>}
     {modal&&(canManage||editing?.assigneeId===member?.id)&&<TaskForm projects={projectsQuery.data||[]} initial={editing} onClose={()=>{setModal(false);setEditing(undefined);}} onSubmit={onSubmit} busy={create.isPending||update.isPending}/>}
      {discussionTask&&<TaskDiscussionDialog task={discussionTask} canUpload={canManage||discussionTask.assigneeId===member?.id} onClose={()=>setDiscussionTask(undefined)}/>}
