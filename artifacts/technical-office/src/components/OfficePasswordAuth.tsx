@@ -40,6 +40,9 @@ class OfficeAuthError extends Error {
 }
 
 const OfficePasswordAuthContext = createContext<OfficePasswordAuthValue | null>(null);
+const officeUsernamePattern = /^[a-zA-Z0-9._-]{3,32}$/;
+const invalidOfficeUsernameMessage =
+  "اسم المستخدم يجب أن يكون من 3 إلى 32 خانة، بلا مسافات. استخدم أحرفًا لاتينية أو أرقامًا أو نقطة أو شرطة.";
 
 export function useOfficePasswordAuth(): OfficePasswordAuthValue {
   const context = useContext(OfficePasswordAuthContext);
@@ -50,6 +53,43 @@ export function useOfficePasswordAuth(): OfficePasswordAuthValue {
 async function readError(response: Response): Promise<string> {
   const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
   return typeof data?.error === "string" ? data.error : "تعذّر إكمال الطلب.";
+}
+
+function officeMemberCreationError(error: unknown): string {
+  const detail = (error as { data?: { error?: unknown } } | null)?.data?.error;
+  let issues: unknown = detail;
+  if (typeof detail === "string") {
+    try {
+      issues = JSON.parse(detail);
+    } catch {
+      if (/[\u0600-\u06ff]/i.test(detail)) return detail;
+      if (detail === "Engineer name is required.") return "اكتب اسم المهندس.";
+      issues = null;
+    }
+  }
+
+  if (Array.isArray(issues)) {
+    const fields = new Set(
+      issues.map((issue) => {
+        if (
+          typeof issue === "object" &&
+          issue !== null &&
+          "path" in issue &&
+          Array.isArray(issue.path)
+        ) {
+          return issue.path[0];
+        }
+        return undefined;
+      }),
+    );
+    if (fields.has("username")) return invalidOfficeUsernameMessage;
+    if (fields.has("password")) return "كلمة المرور المؤقتة يجب أن تكون 8 خانات على الأقل.";
+    if (fields.has("name")) return "اكتب اسم المهندس.";
+    if (fields.has("email")) return "راجع البريد الإلكتروني أو اتركه فارغًا.";
+    return "راجع البيانات المدخلة، ثم حاول مرة أخرى.";
+  }
+
+  return "تعذّر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.";
 }
 
 export function OfficePasswordAuthProvider({ children }: { children: ReactNode }) {
@@ -238,6 +278,7 @@ export function PasswordTeamPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -248,12 +289,18 @@ export function PasswordTeamPage() {
     event.preventDefault();
     setMessage("");
     setIsError(false);
+    setUsernameError("");
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!officeUsernamePattern.test(normalizedUsername)) {
+      setUsernameError(invalidOfficeUsernameMessage);
+      return;
+    }
     createMember.mutate(
       {
         data: {
           name: name.trim(),
           email: email.trim() || undefined,
-          username: username.trim().toLowerCase(),
+          username: normalizedUsername,
           password,
         },
       },
@@ -267,9 +314,8 @@ export function PasswordTeamPage() {
           client.invalidateQueries({ queryKey: getListOfficeMembersQueryKey() });
         },
         onError: (error) => {
-          const details = (error as { data?: { error?: string } }).data?.error;
           setIsError(true);
-          setMessage(details || "تعذّر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.");
+          setMessage(officeMemberCreationError(error));
         },
       },
     );
@@ -328,7 +374,24 @@ export function PasswordTeamPage() {
           </label>
           <label className="block">
             <span className="field-label">اسم المستخدم</span>
-            <input className="field" dir="ltr" autoCapitalize="none" required minLength={3} maxLength={32} pattern="[A-Za-z0-9._-]{3,32}" value={username} onChange={(event) => setUsername(event.target.value)} />
+            <input
+              className="field"
+              dir="ltr"
+              autoCapitalize="none"
+              required
+              maxLength={32}
+              value={username}
+              aria-invalid={Boolean(usernameError)}
+              aria-describedby={usernameError ? "office-username-help office-username-error" : "office-username-help"}
+              onChange={(event) => {
+                setUsername(event.target.value);
+                setUsernameError("");
+              }}
+            />
+            <span id="office-username-help" className="mt-1 block text-xs leading-5 text-[#87918b]">
+              من 3 إلى 32 خانة. استخدم أحرفًا لاتينية أو أرقامًا أو نقطة أو شرطة، بلا مسافات. مثال: <bdi dir="ltr">zyad_hatem</bdi>
+            </span>
+            {usernameError && <span id="office-username-error" className="mt-1 block text-xs font-semibold text-[#a64d40]" role="alert">{usernameError}</span>}
           </label>
           <label className="block">
             <span className="field-label">كلمة المرور المؤقتة</span>
