@@ -52,6 +52,7 @@ import {
   tasksTable,
 } from "@workspace/db";
 import { runDeadlineNotificationSweep } from "../services/deadlineNotifications";
+import { tryDispatchOfficePush } from "../services/officePush";
 import { officeSignUpUrl, usesExternalClerk } from "../lib/clerkConfiguration";
 import { officeProfileFailure } from "../lib/officeProfileFailure";
 import { hashOfficePassword } from "../lib/officePasswordAuth";
@@ -1157,6 +1158,7 @@ router.post("/tasks", async (req, res): Promise<void> => {
     return [created];
   });
   const taskDto = (await listTaskRows()).find((row) => row.id === task.id);
+  await tryDispatchOfficePush();
   res.status(201).json(CreateTaskResponse.parse(taskDto));
 });
 
@@ -1411,6 +1413,7 @@ router.patch("/tasks/:taskId", async (req, res): Promise<void> => {
     return [updated];
   });
   const taskDto = (await listTaskRows()).find((row) => row.id === task.id);
+  await tryDispatchOfficePush();
   res.json(UpdateTaskResponse.parse(taskDto));
 });
 

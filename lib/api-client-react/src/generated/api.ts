@@ -38,6 +38,10 @@ import type {
   OfficeNotificationRead,
   OfficePasswordResetInput,
   OfficeProfileInput,
+  OfficePushConfig,
+  OfficePushDeviceState,
+  OfficePushEndpoint,
+  OfficePushRegistration,
   Project,
   ProjectDetails,
   ProjectInput,
@@ -1289,6 +1293,347 @@ export const useRequestOfficeAttachmentUpload = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRequestOfficeAttachmentUploadMutationOptions(options));
+    }
+
+export const getGetOfficePushConfigUrl = () => {
+
+
+
+
+  return `/api/office/push/config`
+}
+
+/**
+ * @summary Check phone notification availability
+ */
+export const getOfficePushConfig = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficePushConfig> => {
+
+  return customFetch<OfficePushConfig>(getGetOfficePushConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficePushConfigQueryKey = () => {
+    return [
+    `/api/office/push/config`
+    ] as const;
+    }
+
+
+export const getGetOfficePushConfigQueryOptions = <TData = Awaited<ReturnType<typeof getOfficePushConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficePushConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficePushConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficePushConfig>>> = ({ signal }) => getOfficePushConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficePushConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficePushConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficePushConfig>>>
+export type GetOfficePushConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check phone notification availability
+ */
+
+export function useGetOfficePushConfig<TData = Awaited<ReturnType<typeof getOfficePushConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficePushConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficePushConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveOfficePushSubscriptionUrl = () => {
+
+
+
+
+  return `/api/office/push/subscriptions`
+}
+
+/**
+ * @summary Register this browser for the signed-in member
+ */
+export const saveOfficePushSubscription = async (officePushRegistration: OfficePushRegistration, options?: Parameters<typeof customFetch>[1]): Promise<OfficePushDeviceState> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficePushDeviceState>(getSaveOfficePushSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officePushRegistration)
+  }
+);}
+
+
+
+
+
+export const getSaveOfficePushSubscriptionMutationKey = () => ['saveOfficePushSubscription'] as const;
+
+export const getSaveOfficePushSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficePushSubscription>>, TError,SaveOfficePushSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveOfficePushSubscription>>, TError,SaveOfficePushSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getSaveOfficePushSubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveOfficePushSubscription>>, SaveOfficePushSubscriptionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveOfficePushSubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveOfficePushSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof saveOfficePushSubscription>>>
+    export type SaveOfficePushSubscriptionMutationBody = BodyType<OfficePushRegistration>
+    export type SaveOfficePushSubscriptionMutationError = ErrorType<unknown>
+    export type SaveOfficePushSubscriptionMutationVariables = {data: BodyType<OfficePushRegistration>}
+
+    /**
+ * @summary Register this browser for the signed-in member
+ */
+export const useSaveOfficePushSubscription = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveOfficePushSubscription>>, TError,SaveOfficePushSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveOfficePushSubscription>>,
+        TError,
+        SaveOfficePushSubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveOfficePushSubscriptionMutationOptions(options));
+    }
+
+export const getRemoveOfficePushSubscriptionUrl = () => {
+
+
+
+
+  return `/api/office/push/subscriptions`
+}
+
+/**
+ * @summary Disable this browser for the signed-in member
+ */
+export const removeOfficePushSubscription = async (officePushEndpoint: OfficePushEndpoint, options?: Parameters<typeof customFetch>[1]): Promise<OfficePushDeviceState> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficePushDeviceState>(getRemoveOfficePushSubscriptionUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officePushEndpoint)
+  }
+);}
+
+
+
+
+
+export const getRemoveOfficePushSubscriptionMutationKey = () => ['removeOfficePushSubscription'] as const;
+
+export const getRemoveOfficePushSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeOfficePushSubscription>>, TError,RemoveOfficePushSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeOfficePushSubscription>>, TError,RemoveOfficePushSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getRemoveOfficePushSubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeOfficePushSubscription>>, RemoveOfficePushSubscriptionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  removeOfficePushSubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveOfficePushSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof removeOfficePushSubscription>>>
+    export type RemoveOfficePushSubscriptionMutationBody = BodyType<OfficePushEndpoint>
+    export type RemoveOfficePushSubscriptionMutationError = ErrorType<unknown>
+    export type RemoveOfficePushSubscriptionMutationVariables = {data: BodyType<OfficePushEndpoint>}
+
+    /**
+ * @summary Disable this browser for the signed-in member
+ */
+export const useRemoveOfficePushSubscription = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeOfficePushSubscription>>, TError,RemoveOfficePushSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeOfficePushSubscription>>,
+        TError,
+        RemoveOfficePushSubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveOfficePushSubscriptionMutationOptions(options));
+    }
+
+export const getTestOfficePushDeviceUrl = () => {
+
+
+
+
+  return `/api/office/push/test`
+}
+
+/**
+ * @summary Send a test notification to this member's current device only
+ */
+export const testOfficePushDevice = async (officePushEndpoint: OfficePushEndpoint, options?: Parameters<typeof customFetch>[1]): Promise<OfficePushDeviceState> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficePushDeviceState>(getTestOfficePushDeviceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officePushEndpoint)
+  }
+);}
+
+
+
+
+
+export const getTestOfficePushDeviceMutationKey = () => ['testOfficePushDevice'] as const;
+
+export const getTestOfficePushDeviceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testOfficePushDevice>>, TError,TestOfficePushDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof testOfficePushDevice>>, TError,TestOfficePushDeviceMutationVariables, TContext> => {
+
+const mutationKey = getTestOfficePushDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof testOfficePushDevice>>, TestOfficePushDeviceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  testOfficePushDevice(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TestOfficePushDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof testOfficePushDevice>>>
+    export type TestOfficePushDeviceMutationBody = BodyType<OfficePushEndpoint>
+    export type TestOfficePushDeviceMutationError = ErrorType<unknown>
+    export type TestOfficePushDeviceMutationVariables = {data: BodyType<OfficePushEndpoint>}
+
+    /**
+ * @summary Send a test notification to this member's current device only
+ */
+export const useTestOfficePushDevice = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof testOfficePushDevice>>, TError,TestOfficePushDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof testOfficePushDevice>>,
+        TError,
+        TestOfficePushDeviceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTestOfficePushDeviceMutationOptions(options));
     }
 
 export const getGetOfficeDriveStatusUrl = () => {

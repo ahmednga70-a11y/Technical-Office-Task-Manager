@@ -5,3 +5,4 @@
 - [External production hosting](external-production-hosting.md) — the user chose Neon and Vercel for production; preserve that setup.
 - [External credential validation](external-credential-validation.md) — dashboard masks can retain valid prefixes; validate safely before sending or syncing credentials.
 - [Office Drive storage](office-drive-storage.md) — user chose Drive for production files; external hosting needs app-owned Google authorization, not the Replit connector.
+- [Office notification delivery](office-notification-delivery.md) — user requires sound with the app closed; respect phone settings and hosting scheduler limits.

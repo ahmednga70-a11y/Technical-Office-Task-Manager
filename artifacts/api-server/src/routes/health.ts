@@ -5,6 +5,7 @@ import {
   pool, officeAccountsTable, officeAuthLoginAttemptsTable, officeAuthSessionsTable,
   officeMembersTable, projectsTable, tasksTable, taskCommentsTable,
   taskActivityTable, officeNotificationsTable, officeAttachmentsTable,
+  officePushSubscriptionsTable, officePushDeliveriesTable,
 } from "@workspace/db";
 import { isOfficeSchemaReady } from "../lib/schemaReadiness";
 
@@ -12,6 +13,7 @@ const router: IRouter = Router();
 const officeSchema = Object.fromEntries([
   officeMembersTable, projectsTable, tasksTable, taskCommentsTable,
   taskActivityTable, officeNotificationsTable, officeAttachmentsTable,
+  ...(process.env.OFFICE_PUSH_PUBLIC_KEY ? [officePushSubscriptionsTable, officePushDeliveriesTable] : []),
 ].map(table => [
   getTableName(table),
   Object.values(getTableColumns(table)).map(column => column.name),

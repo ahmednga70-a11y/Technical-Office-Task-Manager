@@ -6,6 +6,7 @@ import {
   tasksTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { tryDispatchOfficePush } from "./officePush";
 
 const DUE_SOON_DAYS = 7;
 const OFFICE_TIME_ZONE = "Africa/Cairo";
@@ -108,6 +109,7 @@ async function createDeadlineNotifications(): Promise<void> {
       .values(notifications)
       .onConflictDoNothing();
   }
+  await tryDispatchOfficePush();
 }
 
 let activeSweep: Promise<void> | undefined;

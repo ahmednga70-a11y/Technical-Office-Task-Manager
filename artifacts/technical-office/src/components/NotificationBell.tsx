@@ -10,6 +10,8 @@ import {
 } from '@workspace/api-client-react';
 import type { OfficeNotification } from '@workspace/api-client-react';
 import { useNotificationSound } from '@/hooks/use-notification-sound';
+import { usePhoneNotifications } from '@/hooks/use-phone-notifications';
+import PhoneNotificationControls from './PhoneNotificationControls';
 
 const notificationCopy: Record<OfficeNotification['type'], { label: string; tone: string; icon: typeof Bell }> = {
   task_assigned: { label: 'تكليف جديد', tone: 'assigned', icon: Bell },
@@ -49,7 +51,8 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
   const inbox = notificationsQuery.data;
   const unreadCount = Math.max(0, inbox?.unreadCount ?? 0);
   const notifications = inbox?.notifications ?? [];
-  const sound = useNotificationSound(memberId, inbox?.notifications);
+  const phone = usePhoneNotifications(memberId);
+  const sound = useNotificationSound(memberId, inbox?.notifications, phone.enabled);
 
   const closeDropdown = () => {
     setIsOpen(false);
@@ -128,7 +131,8 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
             </button>
           </header>
 
-          <div className="shrink-0 border-b border-[#e8e4d9] bg-[#f8faf5] px-4 py-3">
+          <PhoneNotificationControls phone={phone} />
+          {!phone.enabled && <div className="shrink-0 border-b border-[#e8e4d9] bg-[#f8faf5] px-4 py-3">
             <button type="button" onClick={sound.toggle} aria-pressed={sound.enabled && sound.ready} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-[#d6e2d9] bg-white px-3 py-2 text-sm font-bold text-[#365e58] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]" data-testid="button-notification-sound">
               <span className="inline-flex items-center gap-2">
                 {sound.enabled && sound.ready ? <Volume2 size={19} aria-hidden="true" /> : <VolumeX size={19} aria-hidden="true" />}
@@ -139,7 +143,7 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
             <p className={`mt-2 text-xs leading-5 ${sound.error ? 'text-[#a64d40]' : 'text-[#63736a]'}`} role={sound.error ? 'alert' : undefined}>
               {sound.error || 'الصوت للتنبيهات الجديدة أثناء فتح التطبيق. تفعيله يشغّل نغمة للتجربة.'}
             </p>
-          </div>
+          </div>}
           {actionError && (
             <p className="mx-3 mt-3 flex items-start gap-2 rounded-xl border border-[#efd4cc] bg-[#fbefea] px-3 py-2.5 text-xs leading-5 text-[#9d4f40]" role="alert" data-testid="status-notification-action-error">
               <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />

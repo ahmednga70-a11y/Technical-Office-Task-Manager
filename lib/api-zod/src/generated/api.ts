@@ -291,6 +291,73 @@ export const RequestOfficeAttachmentUploadResponse = zod.object({
 
 
 /**
+ * @summary Check phone notification availability
+ */
+export const GetOfficePushConfigResponse = zod.object({
+  "configured": zod.boolean(),
+  "publicKey": zod.string().nullable()
+})
+
+
+/**
+ * @summary Register this browser for the signed-in member
+ */
+export const saveOfficePushSubscriptionBodyEndpointMax = 2048;
+
+export const saveOfficePushSubscriptionBodyKeysP256dhMin = 80;
+export const saveOfficePushSubscriptionBodyKeysP256dhMax = 100;
+
+export const saveOfficePushSubscriptionBodyKeysAuthMin = 20;
+export const saveOfficePushSubscriptionBodyKeysAuthMax = 30;
+
+
+
+export const SaveOfficePushSubscriptionBody = zod.object({
+  "endpoint": zod.string().max(saveOfficePushSubscriptionBodyEndpointMax),
+  "keys": zod.object({
+  "p256dh": zod.string().min(saveOfficePushSubscriptionBodyKeysP256dhMin).max(saveOfficePushSubscriptionBodyKeysP256dhMax),
+  "auth": zod.string().min(saveOfficePushSubscriptionBodyKeysAuthMin).max(saveOfficePushSubscriptionBodyKeysAuthMax)
+})
+})
+
+export const SaveOfficePushSubscriptionResponse = zod.object({
+  "enabled": zod.boolean()
+})
+
+
+/**
+ * @summary Disable this browser for the signed-in member
+ */
+export const removeOfficePushSubscriptionBodyEndpointMax = 2048;
+
+
+
+export const RemoveOfficePushSubscriptionBody = zod.object({
+  "endpoint": zod.string().max(removeOfficePushSubscriptionBodyEndpointMax)
+})
+
+export const RemoveOfficePushSubscriptionResponse = zod.object({
+  "enabled": zod.boolean()
+})
+
+
+/**
+ * @summary Send a test notification to this member's current device only
+ */
+export const testOfficePushDeviceBodyEndpointMax = 2048;
+
+
+
+export const TestOfficePushDeviceBody = zod.object({
+  "endpoint": zod.string().max(testOfficePushDeviceBodyEndpointMax)
+})
+
+export const TestOfficePushDeviceResponse = zod.object({
+  "enabled": zod.boolean()
+})
+
+
+/**
  * @summary Check the private attachment storage connection
  */
 export const GetOfficeDriveStatusResponse = zod.object({

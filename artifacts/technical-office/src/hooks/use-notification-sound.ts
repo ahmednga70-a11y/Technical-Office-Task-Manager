@@ -20,7 +20,7 @@ function playChime(context: AudioContext) {
   });
 }
 
-export function useNotificationSound(memberId: number | undefined, notifications: OfficeNotification[] | undefined) {
+export function useNotificationSound(memberId: number | undefined, notifications: OfficeNotification[] | undefined, phonePushEnabled = false) {
   const preferenceKey = `office-notification-sound:${memberId ?? 'pending'}`;
   const [enabled, setEnabled] = useState(() => {
     try { return Boolean(memberId) && localStorage.getItem(preferenceKey) === 'on'; }
@@ -89,11 +89,11 @@ export function useNotificationSound(memberId: number | undefined, notifications
     highestSeenId.current = Math.max(previous ?? 0, maxId);
     // Initial data is a baseline, not a new delivery. Read/unread updates and
     // repeated polling must never replay a notification's sound.
-    if (previous === null || !enabled || !ready || contextRef.current?.state !== 'running') return;
+    if (previous === null || phonePushEnabled || !enabled || !ready || contextRef.current?.state !== 'running') return;
     if (notifications.some(item => item.id > previous && !item.readAt)) {
       playChime(contextRef.current);
     }
-  }, [notifications, enabled, ready]);
+  }, [notifications, enabled, ready, phonePushEnabled]);
 
   useEffect(() => () => {
     const context = contextRef.current;

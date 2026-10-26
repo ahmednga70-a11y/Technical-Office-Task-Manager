@@ -10,6 +10,12 @@
       "includeFiles": "artifacts/api-server/dist-vercel/handler.cjs"
     }
   },
+  "crons": [
+    {
+      "path": "/api/office/push/dispatch",
+      "schedule": "0 6 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

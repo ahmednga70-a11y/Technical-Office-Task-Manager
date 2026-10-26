@@ -22,6 +22,7 @@ import {
 import type { OfficeInvitation, OfficeMember, Project, ProjectInput, Task, TaskInput, TaskUpdate } from '@workspace/api-client-react';
 import TaskDiscussionDialog from '@/components/TaskDiscussionDialog';
 import NotificationBell from '@/components/NotificationBell';
+import { disableCurrentPushDevice } from '@/lib/office-push';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
 import AuthStatus from '@/components/AuthStatus';
 import {
@@ -285,6 +286,14 @@ function OfficeShell({
   onSignOut: () => void | Promise<unknown>;
 }) {
   const [location] = useLocation();
+  const handleSignOut = async () => {
+    try {
+      await disableCurrentPushDevice(member?.id);
+      await onSignOut();
+    } catch {
+      window.alert('تعذّر إيقاف تنبيهات هذا الجهاز وتسجيل الخروج. تحقق من الاتصال وحاول مرة أخرى.');
+    }
+  };
   const nav = [
     { href: '/dashboard', label: 'لوحة المتابعة', icon: LayoutDashboard },
     { href: '/projects', label: 'المشاريع', icon: BriefcaseBusiness },
@@ -303,7 +312,7 @@ function OfficeShell({
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#d97753] text-xs font-extrabold text-white">{initials(name)}</div>
           <div className="profile-copy min-w-0"><p className="truncate text-xs font-bold text-white">{name}</p><p className="mt-1 text-[10px] text-[#a9bbb5]">{member ? member.role === 'manager' ? 'مدير المكتب الفني' : 'مهندس المكتب الفني' : 'عضو الفريق'}</p></div>
         </div>
-        <button className="nav-link w-full" onClick={onSignOut} data-testid="button-sign-out"><LogOut size={18}/><span className="nav-label">تسجيل الخروج</span></button>
+        <button className="nav-link w-full" onClick={handleSignOut} data-testid="button-sign-out"><LogOut size={18}/><span className="nav-label">تسجيل الخروج</span></button>
       </div>
     </aside>
     <div className="main-area">
@@ -312,7 +321,7 @@ function OfficeShell({
         <div className="flex items-center gap-3">
           <span className="hidden text-xs text-[#77827c] sm:block">{new Intl.DateTimeFormat('ar-EG',{weekday:'long',day:'numeric',month:'long'}).format(new Date())}</span>
           <NotificationBell key={member?.id ?? 'pending'} memberId={member?.id} />
-          <button className="mobile-sign-out" onClick={onSignOut} data-testid="button-mobile-sign-out"><LogOut size={16}/><span>خروج</span></button>
+          <button className="mobile-sign-out" onClick={handleSignOut} data-testid="button-mobile-sign-out"><LogOut size={16}/><span>خروج</span></button>
         </div>
       </header>
       {children}

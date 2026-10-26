@@ -192,6 +192,40 @@ export interface OfficeAttachmentUploadCompleteInput {
   fileId?: string;
 }
 
+export interface OfficePushConfig {
+  configured: boolean;
+  /** @nullable */
+  publicKey: string | null;
+}
+
+export type OfficePushRegistrationKeys = {
+  /**
+     * @minLength 80
+     * @maxLength 100
+     */
+  p256dh: string;
+  /**
+     * @minLength 20
+     * @maxLength 30
+     */
+  auth: string;
+};
+
+export interface OfficePushRegistration {
+  /** @maxLength 2048 */
+  endpoint: string;
+  keys: OfficePushRegistrationKeys;
+}
+
+export interface OfficePushEndpoint {
+  /** @maxLength 2048 */
+  endpoint: string;
+}
+
+export interface OfficePushDeviceState {
+  enabled: boolean;
+}
+
 export type OfficeDriveStatusStorageMode = typeof OfficeDriveStatusStorageMode[keyof typeof OfficeDriveStatusStorageMode];
 
 

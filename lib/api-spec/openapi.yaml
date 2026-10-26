@@ -258,6 +258,71 @@ paths:
           description: Upload is not allowed for this project or task
         "413":
           description: File exceeds the upload size limit
+  /office/push/config:
+    get:
+      operationId: getOfficePushConfig
+      tags: [office]
+      summary: Check phone notification availability
+      responses:
+        "200":
+          description: Push configuration without private keys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficePushConfig"
+  /office/push/subscriptions:
+    post:
+      operationId: saveOfficePushSubscription
+      tags: [office]
+      summary: Register this browser for the signed-in member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficePushRegistration"
+      responses:
+        "200":
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficePushDeviceState"
+    delete:
+      operationId: removeOfficePushSubscription
+      tags: [office]
+      summary: Disable this browser for the signed-in member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficePushEndpoint"
+      responses:
+        "200":
+          description: Device disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficePushDeviceState"
+  /office/push/test:
+    post:
+      operationId: testOfficePushDevice
+      tags: [office]
+      summary: Send a test notification to this member's current device only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficePushEndpoint"
+      responses:
+        "200":
+          description: Push service accepted the test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficePushDeviceState"
   /office/drive/status:
     get:
       operationId: getOfficeDriveStatus
@@ -741,6 +806,33 @@ components:
       type: object
       properties:
         fileId: { type: string, minLength: 1, maxLength: 200 }
+    OfficePushConfig:
+      type: object
+      required: [configured, publicKey]
+      properties:
+        configured: { type: boolean }
+        publicKey: { type: [string, "null"] }
+    OfficePushRegistration:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint: { type: string, maxLength: 2048 }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string, minLength: 80, maxLength: 100 }
+            auth: { type: string, minLength: 20, maxLength: 30 }
+    OfficePushEndpoint:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint: { type: string, maxLength: 2048 }
+    OfficePushDeviceState:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
     OfficeDriveStatus:
       type: object
       required: [storageMode, configured, connected, isManager]
