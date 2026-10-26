@@ -7,11 +7,13 @@ import {
 import {
   getListProjectAttachmentsQueryKey,
   getListTaskAttachmentsQueryKey,
+  useGetOfficeDriveStatus,
   useCompleteOfficeAttachmentUpload,
   useDeleteOfficeAttachment,
   useListProjectAttachments,
   useListTaskAttachments,
   useRequestOfficeAttachmentUpload,
+  useStartOfficeDriveConnection,
 } from '@workspace/api-client-react';
 import type { OfficeAttachment } from '@workspace/api-client-react';
 
@@ -80,13 +82,16 @@ export default function AttachmentsPanel(props: Props) {
   });
   const listQuery = projectScope ? projectQuery : taskQuery;
   const attachments = listQuery.data ?? [];
+  const driveStatusQuery = useGetOfficeDriveStatus();
   const requestUpload = useRequestOfficeAttachmentUpload();
   const completeUpload = useCompleteOfficeAttachmentUpload();
   const deleteAttachment = useDeleteOfficeAttachment();
+  const startDriveConnection = useStartOfficeDriveConnection();
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [pendingAttachmentId, setPendingAttachmentId] = useState<number | null>(null);
   const [pendingFileName, setPendingFileName] = useState('');
+  const [pendingDriveFileId, setPendingDriveFileId] = useState<string | null>(null);
   const [isPutting, setIsPutting] = useState(false);
   const [isBatchUploading, setIsBatchUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -100,14 +105,28 @@ export default function AttachmentsPanel(props: Props) {
     });
   };
 
+  const connectDrive = async () => {
+    setErrorMessage('');
+    try {
+      const result = await startDriveConnection.mutateAsync();
+      window.location.assign(result.authorizationUrl);
+    } catch (error) {
+      setErrorMessage(apiErrorMessage(error, 'تعذّر بدء ربط درايف. حاول مرة أخرى.'));
+    }
+  };
+
   const retryCompletion = async () => {
     if (pendingAttachmentId === null) return;
     setErrorMessage('');
     setSuccessMessage('');
     try {
-      await completeUpload.mutateAsync({ attachmentId: pendingAttachmentId });
+      await completeUpload.mutateAsync({
+        attachmentId: pendingAttachmentId,
+        data: pendingDriveFileId ? { fileId: pendingDriveFileId } : {},
+      });
       setPendingAttachmentId(null);
       setPendingFileName('');
+      setPendingDriveFileId(null);
       await invalidateList();
       setSuccessMessage('تم تأكيد رفع الملف بنجاح.');
     } catch {
@@ -161,6 +180,7 @@ export default function AttachmentsPanel(props: Props) {
         }
 
         let putSucceeded = false;
+        let driveFileId: string | null = null;
         setIsPutting(true);
         try {
           const response = await fetch(upload.uploadURL, {
@@ -169,6 +189,13 @@ export default function AttachmentsPanel(props: Props) {
             body: file,
           });
           if (!response.ok) throw new Error('upload-failed');
+          if (upload.storageMode === 'google_drive') {
+            const result = (await response.json()) as { id?: unknown };
+            if (typeof result.id !== 'string' || !result.id) {
+              throw new Error('upload-confirmation-missing');
+            }
+            driveFileId = result.id;
+          }
           putSucceeded = true;
         } catch {
           try {
@@ -184,10 +211,15 @@ export default function AttachmentsPanel(props: Props) {
 
         setPendingAttachmentId(upload.attachmentId);
         setPendingFileName(file.name);
+        setPendingDriveFileId(driveFileId);
         try {
-          await completeUpload.mutateAsync({ attachmentId: upload.attachmentId });
+          await completeUpload.mutateAsync({
+            attachmentId: upload.attachmentId,
+            data: driveFileId ? { fileId: driveFileId } : {},
+          });
           setPendingAttachmentId(null);
           setPendingFileName('');
+          setPendingDriveFileId(null);
           uploadedCount += 1;
         } catch (error) {
           stoppedMessage = `تم رفع «${file.name}» لكن تعذّر تأكيده. ${apiErrorMessage(error, 'أعد المحاولة دون رفع الملف مرة أخرى.')}`;
@@ -227,7 +259,9 @@ export default function AttachmentsPanel(props: Props) {
     }
   };
 
-  const busy = requestUpload.isPending || isPutting || completeUpload.isPending || pendingAttachmentId !== null || isBatchUploading;
+  const storageNeedsConnection = driveStatusQuery.data?.storageMode === 'google_drive'
+    && (!driveStatusQuery.data.configured || !driveStatusQuery.data.connected);
+  const busy = requestUpload.isPending || isPutting || completeUpload.isPending || pendingAttachmentId !== null || isBatchUploading || startDriveConnection.isPending;
 
   return (
     <section className="panel overflow-hidden" dir="rtl" aria-labelledby="attachments-panel-title" data-testid="panel-attachments">
@@ -242,7 +276,7 @@ export default function AttachmentsPanel(props: Props) {
           </div>
         </div>
         {props.canUpload && (
-          <label className={`btn btn-primary relative cursor-pointer !px-4 ${busy ? 'pointer-events-none opacity-60' : ''}`} data-testid="label-upload-attachment">
+          <label className={`btn btn-primary relative cursor-pointer !px-4 ${busy || storageNeedsConnection ? 'pointer-events-none opacity-60' : ''}`} data-testid="label-upload-attachment">
             {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Upload size={16} aria-hidden="true" />}
             <span>
               {busy
@@ -257,7 +291,7 @@ export default function AttachmentsPanel(props: Props) {
               aria-label="اختر ملفًا أو عدة ملفات لإرفاقها"
               accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.dwg,.dxf"
               multiple
-              disabled={busy}
+              disabled={busy || storageNeedsConnection}
               onChange={handleFileChange}
               data-testid="input-attachment-file"
             />
@@ -266,6 +300,29 @@ export default function AttachmentsPanel(props: Props) {
       </header>
 
       <div className="px-4 py-4 sm:px-5" aria-live="polite">
+        {driveStatusQuery.data?.storageMode === 'google_drive' && !driveStatusQuery.data.connected && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ead8bd] bg-[#faf2e4] px-3 py-3 text-sm leading-6 text-[#80643d]" role="status" data-testid="status-drive-connection">
+            <span>
+              {!driveStatusQuery.data.configured
+                ? 'يلزم استكمال إعداد ربط درايف قبل رفع الملفات.'
+                : driveStatusQuery.data.isManager
+                  ? 'اربط حساب درايف الخاص بالمدير لتفعيل حفظ الملفات.'
+                  : 'رفع الملفات متوقف مؤقتًا حتى يربط مدير المكتب حساب درايف.'}
+            </span>
+            {driveStatusQuery.data.configured && driveStatusQuery.data.isManager && (
+              <button
+                type="button"
+                className="btn btn-soft !px-3 !py-2 text-xs"
+                onClick={() => void connectDrive()}
+                disabled={startDriveConnection.isPending}
+                data-testid="button-connect-office-drive"
+              >
+                {startDriveConnection.isPending ? <LoaderCircle size={14} className="animate-spin" aria-hidden="true" /> : <ExternalLink size={14} aria-hidden="true" />}
+                ربط حساب درايف
+              </button>
+            )}
+          </div>
+        )}
         {errorMessage && (
           <div className="mb-4 flex items-start gap-2 rounded-xl border border-[#efd4c9] bg-[#fbefea] px-3 py-3 text-sm leading-6 text-[#a64d40]" role="alert" data-testid="status-attachments-error">
             <AlertCircle size={17} className="mt-1 shrink-0" aria-hidden="true" />

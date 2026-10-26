@@ -25,7 +25,10 @@ import type {
   ListTasksParams,
   OfficeAttachment,
   OfficeAttachmentUpload,
+  OfficeAttachmentUploadCompleteInput,
   OfficeAttachmentUploadInput,
+  OfficeDriveConnect,
+  OfficeDriveStatus,
   OfficeInvitation,
   OfficeInvitationInput,
   OfficeLoginInput,
@@ -1288,6 +1291,157 @@ export const useRequestOfficeAttachmentUpload = <TError = ErrorType<void>,
       return useMutation(getRequestOfficeAttachmentUploadMutationOptions(options));
     }
 
+export const getGetOfficeDriveStatusUrl = () => {
+
+
+
+
+  return `/api/office/drive/status`
+}
+
+/**
+ * @summary Check the private attachment storage connection
+ */
+export const getOfficeDriveStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeDriveStatus> => {
+
+  return customFetch<OfficeDriveStatus>(getGetOfficeDriveStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeDriveStatusQueryKey = () => {
+    return [
+    `/api/office/drive/status`
+    ] as const;
+    }
+
+
+export const getGetOfficeDriveStatusQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeDriveStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeDriveStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeDriveStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeDriveStatus>>> = ({ signal }) => getOfficeDriveStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeDriveStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeDriveStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeDriveStatus>>>
+export type GetOfficeDriveStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Check the private attachment storage connection
+ */
+
+export function useGetOfficeDriveStatus<TData = Awaited<ReturnType<typeof getOfficeDriveStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeDriveStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeDriveStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartOfficeDriveConnectionUrl = () => {
+
+
+
+
+  return `/api/office/drive/connect`
+}
+
+/**
+ * @summary Start the manager's private Google Drive connection
+ */
+export const startOfficeDriveConnection = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeDriveConnect> => {
+
+  return customFetch<OfficeDriveConnect>(getStartOfficeDriveConnectionUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartOfficeDriveConnectionMutationKey = () => ['startOfficeDriveConnection'] as const;
+
+export const getStartOfficeDriveConnectionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startOfficeDriveConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startOfficeDriveConnection>>, TError,void, TContext> => {
+
+const mutationKey = getStartOfficeDriveConnectionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startOfficeDriveConnection>>, void> = () => {
+
+
+          return  startOfficeDriveConnection(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartOfficeDriveConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof startOfficeDriveConnection>>>
+
+    export type StartOfficeDriveConnectionMutationError = ErrorType<void>
+
+
+    /**
+ * @summary Start the manager's private Google Drive connection
+ */
+export const useStartOfficeDriveConnection = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startOfficeDriveConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startOfficeDriveConnection>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getStartOfficeDriveConnectionMutationOptions(options));
+    }
+
 export const getCompleteOfficeAttachmentUploadUrl = (attachmentId: number,) => {
 
 
@@ -1299,14 +1453,29 @@ export const getCompleteOfficeAttachmentUploadUrl = (attachmentId: number,) => {
 /**
  * @summary Verify a direct upload and make the attachment available
  */
-export const completeOfficeAttachmentUpload = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<OfficeAttachment> => {
+export const completeOfficeAttachmentUpload = async (attachmentId: number,
+    officeAttachmentUploadCompleteInput: OfficeAttachmentUploadCompleteInput, options?: Parameters<typeof customFetch>[1]): Promise<OfficeAttachment> => {
 
-  return customFetch<OfficeAttachment>(getCompleteOfficeAttachmentUploadUrl(attachmentId),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OfficeAttachment>(getCompleteOfficeAttachmentUploadUrl(attachmentId),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeAttachmentUploadCompleteInput)
   }
 );}
 
@@ -1331,9 +1500,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>, CompleteOfficeAttachmentUploadMutationVariables> = (props) => {
-          const {attachmentId} = props ?? {};
+          const {attachmentId,data} = props ?? {};
 
-          return  completeOfficeAttachmentUpload(attachmentId,requestOptions)
+          return  completeOfficeAttachmentUpload(attachmentId,data,requestOptions)
         }
 
 
@@ -1344,9 +1513,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CompleteOfficeAttachmentUploadMutationResult = NonNullable<Awaited<ReturnType<typeof completeOfficeAttachmentUpload>>>
-
+    export type CompleteOfficeAttachmentUploadMutationBody = BodyType<OfficeAttachmentUploadCompleteInput>
     export type CompleteOfficeAttachmentUploadMutationError = ErrorType<void>
-    export type CompleteOfficeAttachmentUploadMutationVariables = {attachmentId: number}
+    export type CompleteOfficeAttachmentUploadMutationVariables = {attachmentId: number;data: BodyType<OfficeAttachmentUploadCompleteInput>}
 
     /**
  * @summary Verify a direct upload and make the attachment available

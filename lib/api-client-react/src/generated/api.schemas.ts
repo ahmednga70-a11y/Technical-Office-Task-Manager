@@ -169,10 +169,48 @@ export interface OfficeAttachmentUploadInput {
   size: number;
 }
 
+export type OfficeAttachmentUploadStorageMode = typeof OfficeAttachmentUploadStorageMode[keyof typeof OfficeAttachmentUploadStorageMode];
+
+
+export const OfficeAttachmentUploadStorageMode = {
+  replit: 'replit',
+  google_drive: 'google_drive',
+} as const;
+
 export interface OfficeAttachmentUpload {
   attachmentId: number;
   uploadURL: string;
   contentType: string;
+  storageMode: OfficeAttachmentUploadStorageMode;
+}
+
+export interface OfficeAttachmentUploadCompleteInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  fileId?: string;
+}
+
+export type OfficeDriveStatusStorageMode = typeof OfficeDriveStatusStorageMode[keyof typeof OfficeDriveStatusStorageMode];
+
+
+export const OfficeDriveStatusStorageMode = {
+  replit: 'replit',
+  google_drive: 'google_drive',
+} as const;
+
+export interface OfficeDriveStatus {
+  storageMode: OfficeDriveStatusStorageMode;
+  configured: boolean;
+  connected: boolean;
+  isManager: boolean;
+  /** @nullable */
+  accountEmail?: string | null;
+}
+
+export interface OfficeDriveConnect {
+  authorizationUrl: string;
 }
 
 export type ProjectStatus = typeof ProjectStatus[keyof typeof ProjectStatus];

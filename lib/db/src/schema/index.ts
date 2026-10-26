@@ -19,3 +19,4 @@
 
 export * from "./office";
 export * from "./office-auth";
+export * from "./office-drive";

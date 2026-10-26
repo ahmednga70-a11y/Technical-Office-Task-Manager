@@ -258,6 +258,36 @@ paths:
           description: Upload is not allowed for this project or task
         "413":
           description: File exceeds the upload size limit
+  /office/drive/status:
+    get:
+      operationId: getOfficeDriveStatus
+      tags: [office]
+      summary: Check the private attachment storage connection
+      responses:
+        "200":
+          description: Current attachment storage status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeDriveStatus"
+        "401":
+          description: Sign in is required
+  /office/drive/connect:
+    post:
+      operationId: startOfficeDriveConnection
+      tags: [office]
+      summary: Start the manager's private Google Drive connection
+      responses:
+        "200":
+          description: Google authorization URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeDriveConnect"
+        "403":
+          description: Manager access is required
+        "503":
+          description: Google Drive OAuth is not configured
   /office/attachments/{attachmentId}/complete:
     parameters:
       - name: attachmentId
@@ -269,6 +299,12 @@ paths:
       operationId: completeOfficeAttachmentUpload
       tags: [office]
       summary: Verify a direct upload and make the attachment available
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeAttachmentUploadCompleteInput"
       responses:
         "200":
           description: Completed attachment
@@ -695,11 +731,30 @@ components:
         size: { type: integer, minimum: 1, maximum: 52428800 }
     OfficeAttachmentUpload:
       type: object
-      required: [attachmentId, uploadURL, contentType]
+      required: [attachmentId, uploadURL, contentType, storageMode]
       properties:
         attachmentId: { type: integer }
         uploadURL: { type: string, format: uri }
         contentType: { type: string }
+        storageMode: { type: string, enum: [replit, google_drive] }
+    OfficeAttachmentUploadCompleteInput:
+      type: object
+      properties:
+        fileId: { type: string, minLength: 1, maxLength: 200 }
+    OfficeDriveStatus:
+      type: object
+      required: [storageMode, configured, connected, isManager]
+      properties:
+        storageMode: { type: string, enum: [replit, google_drive] }
+        configured: { type: boolean }
+        connected: { type: boolean }
+        isManager: { type: boolean }
+        accountEmail: { type: ["string", "null"] }
+    OfficeDriveConnect:
+      type: object
+      required: [authorizationUrl]
+      properties:
+        authorizationUrl: { type: string, format: uri }
     Project:
       type: object
       required: [id, name, client, location, status, progress, startDate, endDate, taskCount, completedTaskCount, updatedAt]

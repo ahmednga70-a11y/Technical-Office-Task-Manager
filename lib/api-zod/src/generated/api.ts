@@ -285,7 +285,28 @@ export const RequestOfficeAttachmentUploadBody = zod.object({
 export const RequestOfficeAttachmentUploadResponse = zod.object({
   "attachmentId": zod.number().int(),
   "uploadURL": zod.string().url(),
-  "contentType": zod.string()
+  "contentType": zod.string(),
+  "storageMode": zod.enum(['replit', 'google_drive'])
+})
+
+
+/**
+ * @summary Check the private attachment storage connection
+ */
+export const GetOfficeDriveStatusResponse = zod.object({
+  "storageMode": zod.enum(['replit', 'google_drive']),
+  "configured": zod.boolean(),
+  "connected": zod.boolean(),
+  "isManager": zod.boolean(),
+  "accountEmail": zod.string().nullish()
+})
+
+
+/**
+ * @summary Start the manager's private Google Drive connection
+ */
+export const StartOfficeDriveConnectionResponse = zod.object({
+  "authorizationUrl": zod.string().url()
 })
 
 
@@ -294,6 +315,14 @@ export const RequestOfficeAttachmentUploadResponse = zod.object({
  */
 export const CompleteOfficeAttachmentUploadParams = zod.object({
   "attachmentId": zod.coerce.number().int()
+})
+
+export const completeOfficeAttachmentUploadBodyFileIdMax = 200;
+
+
+
+export const CompleteOfficeAttachmentUploadBody = zod.object({
+  "fileId": zod.string().min(1).max(completeOfficeAttachmentUploadBodyFileIdMax).optional()
 })
 
 export const CompleteOfficeAttachmentUploadResponse = zod.object({

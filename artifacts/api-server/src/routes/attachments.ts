@@ -1,7 +1,9 @@
+import { Readable } from "node:stream";
 import { and, desc, eq } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
 import {
   CompleteOfficeAttachmentUploadParams,
+  CompleteOfficeAttachmentUploadBody,
   CompleteOfficeAttachmentUploadResponse,
   DeleteOfficeAttachmentParams,
   GetOfficeAttachmentContentParams,
@@ -19,6 +21,19 @@ import {
   tasksTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger";
+import {
+  createOfficeDriveUploadSession,
+  deleteOfficeDriveFile,
+  getOfficeDriveConnection,
+  getOfficeDriveFileContent,
+  getOfficeDriveFileMetadata,
+  isOfficeDriveOAuthConfigured,
+  isOfficeDrivePendingPath,
+  OfficeDriveFileNotFoundError,
+  officeDriveFilePath,
+  officeDrivePendingPath,
+  parseOfficeDriveFilePath,
+} from "../lib/officeDriveStorage";
 import {
   createOfficeObjectUpload,
   deleteOfficeObject,
@@ -121,13 +136,23 @@ async function removePendingAttachment(
   attachment: typeof officeAttachmentsTable.$inferSelect,
 ): Promise<void> {
   try {
-    await deleteOfficeObject(attachment.objectPath);
+    await deleteAttachmentObject(attachment.objectPath);
   } catch (error) {
     logger.warn({ err: error, attachmentId: attachment.id }, "Could not clean up a failed attachment upload");
   }
   await db
     .delete(officeAttachmentsTable)
     .where(eq(officeAttachmentsTable.id, attachment.id));
+}
+
+async function deleteAttachmentObject(objectPath: string): Promise<void> {
+  const driveFileId = parseOfficeDriveFilePath(objectPath);
+  if (driveFileId) {
+    await deleteOfficeDriveFile(driveFileId);
+    return;
+  }
+  if (isOfficeDrivePendingPath(objectPath)) return;
+  await deleteOfficeObject(objectPath);
 }
 
 router.get(
@@ -273,6 +298,60 @@ router.post(
     }
 
     try {
+      if (process.env.VERCEL === "1") {
+        if (!isOfficeDriveOAuthConfigured()) {
+          res.status(503).json({
+            error: "يلزم إعداد ربط جوجل قبل رفع الملفات.",
+            code: "DRIVE_OAUTH_NOT_CONFIGURED",
+          });
+          return;
+        }
+        const connection = await getOfficeDriveConnection();
+        if (!connection) {
+          res.status(503).json({
+            error: "يحتاج مدير المكتب إلى ربط حساب درايف أولًا.",
+            code: "DRIVE_NOT_CONNECTED",
+          });
+          return;
+        }
+        const [attachment] = await db
+          .insert(officeAttachmentsTable)
+          .values({
+            projectId: input.scope === "project" ? input.projectId : null,
+            taskId: input.scope === "task" ? input.taskId : null,
+            uploadedById: member.id,
+            uploadedByName: member.name,
+            fileName,
+            contentType,
+            size: input.size,
+            objectPath: officeDrivePendingPath(),
+            status: "pending",
+          })
+          .returning();
+        try {
+          const uploadURL = await createOfficeDriveUploadSession({
+            attachmentId: attachment.id,
+            fileName,
+            contentType,
+            size: input.size,
+          });
+          res.json(
+            RequestOfficeAttachmentUploadResponse.parse({
+              attachmentId: attachment.id,
+              uploadURL,
+              contentType,
+              storageMode: "google_drive",
+            }),
+          );
+        } catch (error) {
+          await db
+            .delete(officeAttachmentsTable)
+            .where(eq(officeAttachmentsTable.id, attachment.id));
+          throw error;
+        }
+        return;
+      }
+
       const { uploadURL, objectPath } = await createOfficeObjectUpload();
       const [attachment] = await db
         .insert(officeAttachmentsTable)
@@ -293,6 +372,7 @@ router.post(
           attachmentId: attachment.id,
           uploadURL,
           contentType,
+          storageMode: "replit",
         }),
       );
     } catch (error) {
@@ -310,6 +390,11 @@ router.post(
     const params = CompleteOfficeAttachmentUploadParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const input = CompleteOfficeAttachmentUploadBody.safeParse(req.body ?? {});
+    if (!input.success) {
+      res.status(400).json({ error: input.error.message });
       return;
     }
     const member = await requireMember(req, res);
@@ -335,6 +420,91 @@ router.post(
           attachmentDto(attachment, access.isManager || attachment.uploadedById === member.id),
         ),
       );
+      return;
+    }
+
+    if (isOfficeDrivePendingPath(attachment.objectPath)) {
+      const fileId = input.data.fileId;
+      if (!fileId || !/^[A-Za-z0-9_-]{10,200}$/.test(fileId)) {
+        res.status(400).json({ error: "لم يصل تأكيد الملف من درايف." });
+        return;
+      }
+      try {
+        const connection = await getOfficeDriveConnection();
+        if (!connection) {
+          res.status(503).json({
+            error: "حساب درايف غير مربوط بمدير المكتب.",
+            code: "DRIVE_NOT_CONNECTED",
+          });
+          return;
+        }
+        const metadata = await getOfficeDriveFileMetadata(fileId);
+        const belongsToUpload =
+          metadata.id === fileId &&
+          !metadata.trashed &&
+          metadata.parents?.includes(connection.folderId) &&
+          metadata.appProperties?.officeAttachmentId === String(attachment.id);
+        if (!belongsToUpload) {
+          res.status(400).json({
+            error: "الملف لا يطابق عملية الرفع الحالية.",
+          });
+          return;
+        }
+        const uploadedSize = Number(metadata.size ?? 0);
+        if (uploadedSize > MAX_ATTACHMENT_SIZE) {
+          await deleteOfficeDriveFile(fileId);
+          await removePendingAttachment(attachment);
+          res.status(413).json({
+            error: "الملف أكبر من الحد المسموح، وتم حذف النسخة المرفوعة.",
+          });
+          return;
+        }
+        if (uploadedSize !== attachment.size || uploadedSize < 1) {
+          await deleteOfficeDriveFile(fileId);
+          await removePendingAttachment(attachment);
+          res.status(400).json({
+            error: "حجم الملف المرفوع لا يطابق حجمه المعلن. حاول رفعه من جديد.",
+          });
+          return;
+        }
+        const [completed] = await db
+          .update(officeAttachmentsTable)
+          .set({ objectPath: officeDriveFilePath(fileId), status: "ready" })
+          .where(
+            and(
+              eq(officeAttachmentsTable.id, attachment.id),
+              eq(officeAttachmentsTable.status, "pending"),
+            ),
+          )
+          .returning();
+        const readyAttachment = completed ?? {
+          ...attachment,
+          objectPath: officeDriveFilePath(fileId),
+          status: "ready" as const,
+        };
+        res.json(
+          CompleteOfficeAttachmentUploadResponse.parse(
+            attachmentDto(
+              readyAttachment,
+              access.isManager || readyAttachment.uploadedById === member.id,
+            ),
+          ),
+        );
+      } catch (error) {
+        if (error instanceof OfficeDriveFileNotFoundError) {
+          res.status(409).json({
+            error: "لم يصل الملف إلى درايف بعد. حاول إكمال الرفع مرة أخرى.",
+          });
+          return;
+        }
+        logger.error(
+          { err: error, attachmentId: attachment.id },
+          "Could not verify office Drive attachment",
+        );
+        res.status(503).json({
+          error: "تعذّر التحقق من الملف المرفوع إلى درايف.",
+        });
+      }
       return;
     }
 
@@ -420,7 +590,20 @@ router.get(
     if (!(await authorizeAttachment(req, res, attachment))) return;
 
     try {
-      const file = await getOfficeObjectFile(attachment.objectPath);
+      const driveFileId = parseOfficeDriveFilePath(attachment.objectPath);
+      let stream: NodeJS.ReadableStream;
+      if (driveFileId) {
+        const fileResponse = await getOfficeDriveFileContent(driveFileId);
+        if (!fileResponse.body) {
+          throw new Error("Google Drive returned an empty file stream.");
+        }
+        stream = Readable.fromWeb(
+          fileResponse.body as import("node:stream/web").ReadableStream<Uint8Array>,
+        );
+      } else {
+        const file = await getOfficeObjectFile(attachment.objectPath);
+        stream = file.createReadStream();
+      }
       const fallbackName =
         attachment.fileName.replace(/[^\w.-]/g, "_").slice(0, 120) || "attachment";
       const encodedName = encodeURIComponent(attachment.fileName).replace(
@@ -438,7 +621,6 @@ router.get(
       );
       res.setHeader("Cache-Control", "private, no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
-      const stream = file.createReadStream();
       stream.on("error", (error) => {
         logger.error({ err: error, attachmentId: attachment.id }, "Could not stream office attachment");
         if (res.headersSent) res.destroy();
@@ -446,7 +628,10 @@ router.get(
       });
       stream.pipe(res);
     } catch (error) {
-      if (error instanceof ObjectNotFoundError) {
+      if (
+        error instanceof ObjectNotFoundError ||
+        error instanceof OfficeDriveFileNotFoundError
+      ) {
         res.status(404).json({ error: "Attachment content not found." });
         return;
       }
@@ -508,7 +693,7 @@ router.delete(
       return;
     }
     try {
-      await deleteOfficeObject(attachment.objectPath);
+      await deleteAttachmentObject(attachment.objectPath);
       await db
         .delete(officeAttachmentsTable)
         .where(eq(officeAttachmentsTable.id, attachment.id));
