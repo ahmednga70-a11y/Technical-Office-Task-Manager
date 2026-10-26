@@ -126,7 +126,8 @@ export function isOfficeDriveOAuthConfigured(): boolean {
   return Boolean(
     process.env.GOOGLE_DRIVE_CLIENT_ID?.trim() &&
       process.env.GOOGLE_DRIVE_CLIENT_SECRET?.trim() &&
-      process.env.APP_URL?.trim(),
+      process.env.APP_URL?.trim() &&
+      process.env.SESSION_SECRET?.trim(),
   );
 }
 
@@ -278,6 +279,11 @@ export async function finishOfficeDriveOAuth(
   const accountEmail = await getGoogleAccountEmail(accessToken);
 
   const existing = await getOfficeDriveConnection();
+  if (existing && existing.accountEmail.toLowerCase() !== accountEmail) {
+    throw new Error(
+      "Reconnect the same Google Drive account to preserve access to existing attachments.",
+    );
+  }
   const refreshToken =
     tokens.refresh_token ??
     (existing

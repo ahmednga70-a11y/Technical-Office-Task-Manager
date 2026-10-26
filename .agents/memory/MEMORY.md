@@ -4,3 +4,4 @@
 - [Technical-office build environment](technical-office-build-env.md) — manual Vite production builds need the artifact’s `PORT` and `BASE_PATH` values.
 - [External production hosting](external-production-hosting.md) — the user chose Neon and Vercel for production; preserve that setup.
 - [External credential validation](external-credential-validation.md) — dashboard masks can retain valid prefixes; validate safely before sending or syncing credentials.
+- [Office Drive storage](office-drive-storage.md) — user chose Drive for production files; external hosting needs app-owned Google authorization, not the Replit connector.
