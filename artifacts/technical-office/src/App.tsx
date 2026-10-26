@@ -21,6 +21,7 @@ import {
 } from '@workspace/api-client-react';
 import type { OfficeInvitation, OfficeMember, Project, ProjectInput, Task, TaskInput, TaskUpdate } from '@workspace/api-client-react';
 import TaskDiscussionDialog from '@/components/TaskDiscussionDialog';
+import TaskActions from '@/components/TaskActions';
 import NotificationBell from '@/components/NotificationBell';
 import { disableCurrentPushDevice } from '@/lib/office-push';
 import AttachmentsPanel from '@/components/AttachmentsPanel';
@@ -346,16 +347,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 function TaskRow({ task, onEdit, onDelete, onDiscussion }: { task: Task; onEdit?: (task: Task) => void; onDelete?: (task: Task) => void; onDiscussion?: (task: Task) => void }) {
   const member=useContext(OfficeMemberContext);
-  const canEdit=member?.role==='manager'||task.assigneeId===member?.id;
-  const canDelete=member?.role==='manager';
-  const canDiscuss=member?.role==='manager'||task.assigneeId===member?.id;
-  return <div className="table-row grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] items-center gap-4 py-4 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-3" data-testid={`row-task-${task.id}`}>
+  return <div className="table-row !grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] items-center gap-4 py-4 max-md:grid-cols-[minmax(0,1fr)] max-md:gap-y-3" data-testid={`row-task-${task.id}`}>
     <div className="min-w-0"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-bold text-[#304743]">{task.title}</h3>{task.priority==='urgent'&&<CircleAlert size={14} className="shrink-0 text-[#c05a45]"/>}</div><p className="mt-1 truncate text-xs text-[#8a938c]">{task.projectName} <span className="mx-1">·</span>{arabicCategory[task.category]||task.category}</p></div>
     <div className="hidden items-center gap-2 text-xs text-[#6e7a74] md:flex"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#e8ebe2] text-[10px] font-bold text-[#4b665d]">{initials(task.assigneeName)}</span>{task.assigneeName||'غير معيّنة'}</div>
     <div className="hidden md:block"><StatusBadge status={task.status}/></div>
     <span className={`hidden text-xs font-semibold md:block ${new Date(task.dueDate)<new Date()&&task.status!=='done'?'text-[#bd5d49]':'text-[#77827c]'}`}><CalendarDays size={13} className="ml-1 inline"/>{fmtDate(task.dueDate)}</span>
-    <div className="flex justify-end gap-1">{onDiscussion&&canDiscuss&&<button type="button" className="btn btn-ghost !p-2" title="نقاش وسجل المهمة" aria-label={`فتح نقاش المهمة ${task.title}`} onClick={()=>onDiscussion(task)} data-testid={`button-discussion-task-${task.id}`}><MessageCircle size={15}/></button>}{onEdit&&canEdit&&<button className="btn btn-ghost !p-2" title="تعديل المهمة" onClick={()=>onEdit(task)} data-testid={`button-edit-task-${task.id}`}><Pencil size={15}/></button>}{onDelete&&canDelete&&<button className="btn btn-ghost !p-2 hover:text-[#b84c40]" title="حذف المهمة" onClick={()=>onDelete(task)} data-testid={`button-delete-task-${task.id}`}><Trash2 size={15}/></button>}</div>
-    <div className="col-span-2 flex items-center gap-2 md:hidden"><StatusBadge status={task.status}/><span className="text-[11px] text-[#77827c]">{task.assigneeName||'غير معيّنة'} · {fmtDate(task.dueDate)}</span></div>
+    <div className="col-span-full flex flex-wrap items-center gap-2 md:hidden"><StatusBadge status={task.status}/><span className="text-[11px] text-[#77827c]">{task.assigneeName||'غير معيّنة'} · {fmtDate(task.dueDate)}</span></div>
+    <TaskActions task={task} memberId={member?.id} canManage={member?.role==='manager'} onEdit={onEdit} onDelete={onDelete} onDiscussion={onDiscussion}/>
   </div>;
 }
 

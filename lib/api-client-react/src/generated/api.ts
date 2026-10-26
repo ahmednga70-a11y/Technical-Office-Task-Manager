@@ -2763,7 +2763,7 @@ export const getGetTaskDiscussionUrl = (taskId: number,) => {
 
 
 
-  return `/api/tasks/${taskId}`
+  return `/api/tasks/${taskId}/discussion`
 }
 
 /**
@@ -2786,7 +2786,7 @@ export const getTaskDiscussion = async (taskId: number, options?: Parameters<typ
 
 export const getGetTaskDiscussionQueryKey = (taskId: number,) => {
     return [
-    `/api/tasks/${taskId}`
+    `/api/tasks/${taskId}/discussion`
     ] as const;
     }
 
