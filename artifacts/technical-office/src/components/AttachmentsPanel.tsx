@@ -46,6 +46,27 @@ function isPreviewable(attachment: OfficeAttachment) {
     || ['png', 'jpg', 'jpeg', 'webp'].includes(extension || '');
 }
 
+function validateAttachmentFile(file: File): string | undefined {
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  if (!ALLOWED_EXTENSIONS.has(extension)) {
+    return 'نوع الملف غير مدعوم.';
+  }
+  if (file.size < 1) {
+    return 'الملف فارغ.';
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return 'حجم الملف أكبر من ٥٠ ميجابايت.';
+  }
+  return undefined;
+}
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  const detail = (error as { data?: { error?: unknown } } | null)?.data?.error;
+  return typeof detail === 'string' && /[\u0600-\u06ff]/.test(detail)
+    ? detail
+    : fallback;
+}
+
 export default function AttachmentsPanel(props: Props) {
   const queryClient = useQueryClient();
   const projectScope = props.scope === 'project';
@@ -63,8 +84,12 @@ export default function AttachmentsPanel(props: Props) {
   const completeUpload = useCompleteOfficeAttachmentUpload();
   const deleteAttachment = useDeleteOfficeAttachment();
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [pendingAttachmentId, setPendingAttachmentId] = useState<number | null>(null);
+  const [pendingFileName, setPendingFileName] = useState('');
   const [isPutting, setIsPutting] = useState(false);
+  const [isBatchUploading, setIsBatchUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const invalidateList = async () => {
@@ -78,10 +103,13 @@ export default function AttachmentsPanel(props: Props) {
   const retryCompletion = async () => {
     if (pendingAttachmentId === null) return;
     setErrorMessage('');
+    setSuccessMessage('');
     try {
       await completeUpload.mutateAsync({ attachmentId: pendingAttachmentId });
       setPendingAttachmentId(null);
+      setPendingFileName('');
       await invalidateList();
+      setSuccessMessage('تم تأكيد رفع الملف بنجاح.');
     } catch {
       setErrorMessage('تم رفع الملف، لكن تعذّر تأكيده. حاول التأكيد مرة أخرى.');
     }
@@ -89,67 +117,97 @@ export default function AttachmentsPanel(props: Props) {
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
-    const file = input.files?.[0];
+    const selectedFiles = Array.from(input.files ?? []);
     input.value = '';
-    if (!file) return;
+    if (selectedFiles.length === 0) return;
     setErrorMessage('');
+    setSuccessMessage('');
 
-    const extension = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!ALLOWED_EXTENSIONS.has(extension)) {
-      setErrorMessage('نوع الملف غير مدعوم. اختر ملفاً بالامتدادات المسموح بها.');
-      return;
+    const validFiles: File[] = [];
+    const rejectedFiles: string[] = [];
+    for (const file of selectedFiles) {
+      const reason = validateAttachmentFile(file);
+      if (reason) rejectedFiles.push(`«${file.name}»: ${reason}`);
+      else validFiles.push(file);
     }
-    if (file.size < 1) {
-      setErrorMessage('الملف فارغ، اختر ملفاً يحتوي على بيانات.');
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      setErrorMessage('حجم الملف أكبر من الحد المسموح؛ الحد الأقصى ٥٠ ميجابايت.');
+    if (validFiles.length === 0) {
+      setErrorMessage(rejectedFiles.join(' '));
       return;
     }
 
+    setIsBatchUploading(true);
+    setUploadProgress({ current: 0, total: validFiles.length });
+    let uploadedCount = 0;
+    const failedFiles: string[] = [];
+    let stoppedMessage = '';
     try {
-      const upload = await requestUpload.mutateAsync({
-        data: {
-          scope: props.scope,
-          projectId: projectScope ? props.projectId : null,
-          taskId: projectScope ? null : props.taskId,
-          fileName: file.name,
-          size: file.size,
-        },
-      });
-      setIsPutting(true);
-      let putSucceeded = false;
-      try {
-        const response = await fetch(upload.uploadURL, {
-          method: 'PUT',
-          headers: { 'Content-Type': upload.contentType },
-          body: file,
-        });
-        if (!response.ok) throw new Error('upload-failed');
-        putSucceeded = true;
-      } catch {
+      for (let index = 0; index < validFiles.length; index += 1) {
+        const file = validFiles[index];
+        setUploadProgress({ current: index + 1, total: validFiles.length });
+        let upload: Awaited<ReturnType<typeof requestUpload.mutateAsync>>;
         try {
-          await deleteAttachment.mutateAsync({ attachmentId: upload.attachmentId });
-        } catch {
-          // Best-effort cleanup for a failed direct upload.
+          upload = await requestUpload.mutateAsync({
+            data: {
+              scope: props.scope,
+              projectId: projectScope ? props.projectId : null,
+              taskId: projectScope ? null : props.taskId,
+              fileName: file.name,
+              size: file.size,
+            },
+          });
+        } catch (error) {
+          stoppedMessage = `تعذّر بدء رفع «${file.name}». ${apiErrorMessage(error, 'تحقق من الاتصال وحاول مرة أخرى.')}`;
+          break;
         }
-        setErrorMessage('تعذّر رفع الملف إلى التخزين. تحقق من الاتصال وحاول مرة أخرى.');
-      } finally {
-        setIsPutting(false);
+
+        let putSucceeded = false;
+        setIsPutting(true);
+        try {
+          const response = await fetch(upload.uploadURL, {
+            method: 'PUT',
+            headers: { 'Content-Type': upload.contentType },
+            body: file,
+          });
+          if (!response.ok) throw new Error('upload-failed');
+          putSucceeded = true;
+        } catch {
+          try {
+            await deleteAttachment.mutateAsync({ attachmentId: upload.attachmentId });
+          } catch {
+            // Best-effort cleanup for a failed direct upload.
+          }
+          failedFiles.push(`تعذّر رفع «${file.name}» إلى مساحة الملفات. تحقق من الاتصال وحاول مرة أخرى.`);
+        } finally {
+          setIsPutting(false);
+        }
+        if (!putSucceeded) break;
+
+        setPendingAttachmentId(upload.attachmentId);
+        setPendingFileName(file.name);
+        try {
+          await completeUpload.mutateAsync({ attachmentId: upload.attachmentId });
+          setPendingAttachmentId(null);
+          setPendingFileName('');
+          uploadedCount += 1;
+        } catch (error) {
+          stoppedMessage = `تم رفع «${file.name}» لكن تعذّر تأكيده. ${apiErrorMessage(error, 'أعد المحاولة دون رفع الملف مرة أخرى.')}`;
+          break;
+        }
       }
 
-      if (!putSucceeded) return;
-      setPendingAttachmentId(upload.attachmentId);
-      try {
-        await completeUpload.mutateAsync({ attachmentId: upload.attachmentId });
-        setPendingAttachmentId(null);
+      if (uploadedCount > 0) {
         await invalidateList();
-      } catch {
-        setErrorMessage('تم رفع الملف، لكن تعذّر تأكيده. يمكنك إعادة المحاولة دون رفع الملف مرة أخرى.');
+        setSuccessMessage(`تم رفع ${uploadedCount.toLocaleString('ar-EG')} من ${validFiles.length.toLocaleString('ar-EG')} ملفًا بنجاح.`);
       }
-    } catch {
-      setErrorMessage('تعذّر الاتصال بالخدمة لبدء رفع الملف. حاول مرة أخرى.');
+      const messages = [...rejectedFiles, ...failedFiles];
+      if (stoppedMessage) messages.push(stoppedMessage);
+      if (stoppedMessage && uploadedCount + failedFiles.length < validFiles.length) {
+        messages.push('تم إيقاف بقية الملفات بعد تعذّر الاتصال.');
+      }
+      if (messages.length > 0) setErrorMessage(messages.join(' '));
+    } finally {
+      setUploadProgress(null);
+      setIsBatchUploading(false);
     }
   };
 
@@ -158,6 +216,7 @@ export default function AttachmentsPanel(props: Props) {
     if (!window.confirm(`حذف الملف «${attachment.fileName}» نهائيًا؟`)) return;
     setDeletingId(attachment.id);
     setErrorMessage('');
+    setSuccessMessage('');
     try {
       await deleteAttachment.mutateAsync({ attachmentId: attachment.id });
       await invalidateList();
@@ -168,7 +227,7 @@ export default function AttachmentsPanel(props: Props) {
     }
   };
 
-  const busy = requestUpload.isPending || isPutting || completeUpload.isPending || pendingAttachmentId !== null;
+  const busy = requestUpload.isPending || isPutting || completeUpload.isPending || pendingAttachmentId !== null || isBatchUploading;
 
   return (
     <section className="panel overflow-hidden" dir="rtl" aria-labelledby="attachments-panel-title" data-testid="panel-attachments">
@@ -185,12 +244,19 @@ export default function AttachmentsPanel(props: Props) {
         {props.canUpload && (
           <label className={`btn btn-primary relative cursor-pointer !px-4 ${busy ? 'pointer-events-none opacity-60' : ''}`} data-testid="label-upload-attachment">
             {busy ? <LoaderCircle size={16} className="animate-spin" aria-hidden="true" /> : <Upload size={16} aria-hidden="true" />}
-            <span>{busy ? 'جارٍ الرفع' : 'إرفاق ملف'}</span>
+            <span>
+              {busy
+                ? uploadProgress
+                  ? `جارٍ رفع ${uploadProgress.current.toLocaleString('ar-EG')} من ${uploadProgress.total.toLocaleString('ar-EG')} ملفات`
+                  : 'جارٍ الرفع'
+                : 'إرفاق ملفات'}
+            </span>
             <input
               type="file"
               className="sr-only"
-              aria-label="اختر ملفاً لإرفاقه"
+              aria-label="اختر ملفًا أو عدة ملفات لإرفاقها"
               accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.dwg,.dxf"
+              multiple
               disabled={busy}
               onChange={handleFileChange}
               data-testid="input-attachment-file"
@@ -206,12 +272,18 @@ export default function AttachmentsPanel(props: Props) {
             <span>{errorMessage}</span>
           </div>
         )}
+        {successMessage && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-[#d3e7dc] bg-[#edf6f0] px-3 py-3 text-sm leading-6 text-[#386d60]" role="status" data-testid="status-attachments-success">
+            <CheckCircle2 size={17} className="mt-1 shrink-0" aria-hidden="true" />
+            <span>{successMessage}</span>
+          </div>
+        )}
 
         {pendingAttachmentId !== null && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ead8bd] bg-[#faf2e4] px-3 py-3" data-testid={`status-pending-attachment-${pendingAttachmentId}`}>
             <span className="flex items-center gap-2 text-sm text-[#80643d]">
               <CheckCircle2 size={16} aria-hidden="true" />
-              الملف مرفوع وينتظر التأكيد.
+              {pendingFileName ? `الملف «${pendingFileName}» مرفوع وينتظر التأكيد.` : 'الملف مرفوع وينتظر التأكيد.'}
             </span>
             <button
               type="button"
