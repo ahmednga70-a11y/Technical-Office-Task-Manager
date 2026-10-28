@@ -243,6 +243,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .work-legend-item i { width:9px; height:9px; border-radius:50%; }
 .work-legend-item strong { font-family:var(--app-font-mono); color:#203b39; }
 .chip-count { margin-inline-start:6px; font-family:var(--app-font-mono); font-size:11px; opacity:.75; }
+.task-list-row { min-width:0; border-bottom:1px solid #e6e3d9; }
+.task-list-row:last-child { border-bottom:0; }
+.task-list-summary { display:grid; grid-template-columns:6px minmax(0,1fr) 16px; align-items:center; gap:12px; min-height:56px; padding:12px 0; cursor:pointer; list-style:none; border-radius:8px; transition:background .15s; }
+.task-list-summary::-webkit-details-marker { display:none; }
+.task-list-summary:hover { background:#edf2eb; }
+.task-list-summary:focus-visible { outline:2px solid #39746a; outline-offset:2px; }
+.task-list-bullet { width:5px; height:5px; border-radius:50%; background:#39746a; }
+.task-list-copy,.task-list-heading { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,.9fr); align-items:center; gap:16px; }
+.task-list-copy > span { min-width:0; overflow-wrap:anywhere; }
+.task-list-title { color:#304743; font-size:13px; font-weight:800; line-height:1.8; }
+.task-list-project,.task-list-assignee { color:#77827c; font-size:12px; line-height:1.8; }
+.task-list-heading { padding:12px 18px 12px 28px; border-bottom:1px solid #e6e3d9; font-size:10px; font-weight:700; color:#929991; }
+.task-list-chevron { color:#89968e; transition:transform .15s; }
+.task-list-row[open] > .task-list-summary .task-list-chevron { transform:rotate(180deg); }
+.task-list-row[open] > .task-list-summary { color:#285e59; }
+.task-list-details { margin:0 18px 12px 0; padding:16px; border:1px solid #e0e6dc; border-radius:12px; background:#f7f8f2; overflow-wrap:anywhere; }
+@media (max-width:767px) {
+  .task-list-heading { display:none; }
+  .task-list-copy { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:2px 12px; }
+  .task-list-title { grid-column:1 / -1; }
+  .task-list-summary { gap:10px; padding:11px 0; }
+  .task-list-project,.task-list-assignee { font-size:11px; }
+  .task-list-details { margin-inline-start:0; padding:12px; }
+}
 @media (max-width: 650px) {
   .progress-hero { grid-template-columns:minmax(0,1fr); padding:22px 16px; }
   .progress-split { grid-template-columns:repeat(2,minmax(0,1fr)); }

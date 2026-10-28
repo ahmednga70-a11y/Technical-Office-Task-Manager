@@ -4,7 +4,7 @@ import { ClerkFailed, ClerkLoading, ClerkProvider, Show, SignIn, SignUp, useCler
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
-  Activity, ArrowLeft, BriefcaseBusiness, CalendarDays, CheckCheck, CircleAlert,
+  Activity, ArrowLeft, BriefcaseBusiness, CalendarDays, CheckCheck, ChevronDown, CircleAlert,
   ClipboardList, Clock3, FolderKanban, LayoutDashboard, LogOut, MapPin, MessageCircle, Plus, Search,
   SlidersHorizontal, X, Pencil, Trash2, ListTodo, ArrowUpRight, LoaderCircle, RefreshCw,
 } from 'lucide-react';
@@ -348,14 +348,28 @@ function StatusBadge({ status }: { status: string }) {
 }
 function TaskRow({ task, onEdit, onDelete, onDiscussion }: { task: Task; onEdit?: (task: Task) => void; onDelete?: (task: Task) => void; onDiscussion?: (task: Task) => void }) {
   const member=useContext(OfficeMemberContext);
-  return <div className="table-row !grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] items-center gap-4 py-4 max-md:grid-cols-[minmax(0,1fr)] max-md:gap-y-3" data-testid={`row-task-${task.id}`}>
-    <div className="min-w-0"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-bold text-[#304743]">{task.title}</h3>{task.priority==='urgent'&&<CircleAlert size={14} className="shrink-0 text-[#c05a45]"/>}</div><p className="mt-1 truncate text-xs text-[#8a938c]">{task.projectName} <span className="mx-1">·</span>{arabicCategory[task.category]||task.category}</p></div>
-    <div className="hidden items-center gap-2 text-xs text-[#6e7a74] md:flex"><span className="grid h-7 w-7 place-items-center rounded-full bg-[#e8ebe2] text-[10px] font-bold text-[#4b665d]">{initials(task.assigneeName)}</span>{task.assigneeName||'غير معيّنة'}</div>
-    <div className="hidden md:block"><StatusBadge status={task.status}/></div>
-    <span className={`hidden text-xs font-semibold md:block ${new Date(task.dueDate)<new Date()&&task.status!=='done'?'text-[#bd5d49]':'text-[#77827c]'}`}><CalendarDays size={13} className="ml-1 inline"/>{fmtDate(task.dueDate)}</span>
-    <div className="col-span-full flex flex-wrap items-center gap-2 md:hidden"><StatusBadge status={task.status}/><span className="text-[11px] text-[#77827c]">{task.assigneeName||'غير معيّنة'} · {fmtDate(task.dueDate)}</span></div>
-    <TaskActions task={task} memberId={member?.id} canManage={member?.role==='manager'} onEdit={onEdit} onDelete={onDelete} onDiscussion={onDiscussion}/>
-  </div>;
+  return <details className="task-list-row" data-testid={`row-task-${task.id}`}>
+    <summary className="task-list-summary" data-testid={`button-expand-task-${task.id}`}>
+      <span className="task-list-bullet" aria-hidden="true"/>
+      <span className="task-list-copy">
+        <span className="task-list-title">{task.title}</span>
+        <span className="task-list-project"><span className="sr-only">المشروع: </span>{task.projectName}</span>
+        <span className="task-list-assignee"><span className="sr-only">المسؤول: </span>{task.assigneeName||'غير معيّنة'}</span>
+      </span>
+      <ChevronDown className="task-list-chevron" size={16} aria-hidden="true"/>
+    </summary>
+    <div className="task-list-details" data-testid={`details-task-${task.id}`}>
+      <h3 className="sr-only">تفاصيل المهمة</h3>
+      <dl className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-4">
+        <div><dt className="mb-2 text-[#839089]">الحالة</dt><dd><StatusBadge status={task.status}/></dd></div>
+        <div><dt className="mb-2 text-[#839089]">موعد التسليم</dt><dd className={new Date(task.dueDate)<new Date()&&task.status!=='done'?'font-bold text-[#bd5d49]':'text-[#4d625b]'}>{fmtDate(task.dueDate)}</dd></div>
+        <div><dt className="mb-2 text-[#839089]">التخصص</dt><dd className="text-[#4d625b]">{arabicCategory[task.category]||task.category}</dd></div>
+        <div><dt className="mb-2 text-[#839089]">الأولوية</dt><dd className={task.priority==='urgent'?'font-bold text-[#bd5d49]':'text-[#4d625b]'}>{task.priority==='urgent'?'عاجلة':'عادية'}</dd></div>
+      </dl>
+      <div className="my-4"><h4 className="mb-1 text-xs text-[#839089]">وصف المهمة</h4><p className="whitespace-pre-wrap break-words text-sm leading-7 text-[#4d625b]">{task.description||'لا يوجد وصف إضافي لهذه المهمة.'}</p></div>
+      <TaskActions task={task} memberId={member?.id} canManage={member?.role==='manager'} onEdit={onEdit} onDelete={onDelete} onDiscussion={onDiscussion}/>
+    </div>
+  </details>;
 }
 
 function DashboardPage() {
@@ -555,9 +569,9 @@ function TasksPage() {
   const done=()=>{client.invalidateQueries({queryKey:getListTasksQueryKey()});client.invalidateQueries({queryKey:getGetOfficeDashboardQueryKey()});client.invalidateQueries({queryKey:getListProjectsQueryKey()});};
   const onSubmit=(value:TaskInput|{taskId:number;data:TaskUpdate})=>{if('taskId'in value)update.mutate({taskId:value.taskId,data:value.data},{onSuccess:()=>{done();setModal(false);setEditing(undefined);client.invalidateQueries({queryKey:getGetTaskDiscussionQueryKey(value.taskId)});client.invalidateQueries({queryKey:getListOfficeNotificationsQueryKey()});}});else create.mutate({data:value},{onSuccess:()=>{done();setModal(false);}});};
   const onDelete=(task:Task)=>{if(window.confirm(`حذف المهمة «${task.title}»؟`))remove.mutate({taskId:task.id},{onSuccess:done});};
-  return <main className="page-content"><PageTitle eyebrow="التكليفات والمتابعة" title="المهام" description="كل شغل الفريق: فلتر بالحالة أو المشروع، وحدّث الحالة مباشرة من الصف." action={canManage&&<button className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50" disabled={!projectsQuery.data?.length} onClick={()=>{setEditing(undefined);setModal(true);}} data-testid="button-create-task"><Plus size={17}/> مهمة جديدة</button>}/>
+  return <main className="page-content"><PageTitle eyebrow="التكليفات والمتابعة" title="المهام" description="قائمة مختصرة للمهام؛ اضغط على أي مهمة لعرض تفاصيلها وإجراءاتها." action={canManage&&<button className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50" disabled={!projectsQuery.data?.length} onClick={()=>{setEditing(undefined);setModal(true);}} data-testid="button-create-task"><Plus size={17}/> مهمة جديدة</button>}/>
      <div className="panel mb-5 task-filters p-4"><div className="task-filter-controls"><div className="relative min-w-0 flex-1"><Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#89928b]"/><input className="field pr-10" placeholder="ابحث عن مهمة أو مشروع أو مسؤول..." value={search} onChange={e=>filters.set({q:e.target.value},true)} data-testid="input-search-tasks"/></div><select className="field task-project-select" value={project} onChange={e=>filters.set({project:e.target.value})} data-testid="select-filter-project"><option value="all">كل المشاريع</option>{projectsQuery.data?.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select>{hasFilters&&<button type="button" className="btn btn-soft task-clear-button" onClick={clearFilters} data-testid="button-clear-task-filters"><X size={15}/> مسح الفلاتر</button>}</div><StatusFilterChips value={status} counts={scopeCounts} onChange={value=>filters.set({status:value})}/><div className="mt-3 flex flex-wrap items-center gap-3"><div className="min-w-[180px] flex-1"><WorkBar counts={scopeCounts}/></div><span className="text-xs text-[#6f7d75]" data-testid="text-task-scope-progress"><strong className="font-mono text-[#4f7d48]">{scopeCounts.done}</strong> خلصت · <strong className="font-mono text-[#a3643a]">{scopeCounts.remaining}</strong> فاضل · {scopeCounts.percent}%</span></div></div>
-     {query.isLoading?<SkeletonRows/>:query.isError?<ErrorState retry={()=>query.refetch()}/>:rows.length?<section className="panel px-5 py-2 md:px-7"><div className="grid grid-cols-[minmax(0,1.5fr)_minmax(110px,.8fr)_minmax(90px,.6fr)_minmax(86px,.55fr)_auto] gap-4 border-b border-[#e6e3d9] py-3 text-[10px] font-bold text-[#929991] max-md:hidden"><span>المهمة / المشروع</span><span>المسؤول</span><span>الحالة</span><span>التسليم</span><span/></div>{rows.map(task=><TaskRow key={task.id} task={task} onEdit={t=>{setEditing(t);setModal(true);}} onDelete={onDelete} onDiscussion={setDiscussionTask}/>)}</section>:<EmptyState title={hasFilters?'مفيش مهام بالاختيارات دي':'لسه مفيش مهام'} body="ابدأ بتكليف جديد، أو غيّر الفلاتر عشان تظهر نتائج أكتر." action={hasFilters?<button className="btn btn-soft" onClick={clearFilters}><X size={15}/> مسح الفلاتر</button>:canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}><Plus size={15}/> مهمة جديدة</button>}/>}
+     {query.isLoading?<SkeletonRows/>:query.isError?<ErrorState retry={()=>query.refetch()}/>:rows.length?<section className="panel px-4 py-1 md:px-6" aria-label="قائمة المهام"><div className="task-list-heading" aria-hidden="true"><span>اسم المهمة</span><span>المشروع</span><span>المسؤول</span></div>{rows.map(task=><TaskRow key={task.id} task={task} onEdit={t=>{setEditing(t);setModal(true);}} onDelete={onDelete} onDiscussion={setDiscussionTask}/>)}</section>:<EmptyState title={hasFilters?'مفيش مهام بالاختيارات دي':'لسه مفيش مهام'} body="ابدأ بتكليف جديد، أو غيّر الفلاتر عشان تظهر نتائج أكتر." action={hasFilters?<button className="btn btn-soft" onClick={clearFilters}><X size={15}/> مسح الفلاتر</button>:canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}><Plus size={15}/> مهمة جديدة</button>}/>}
     {modal&&(canManage||editing?.assigneeId===member?.id)&&<TaskForm projects={projectsQuery.data||[]} initial={editing} onClose={()=>{setModal(false);setEditing(undefined);}} onSubmit={onSubmit} busy={create.isPending||update.isPending}/>}
      {discussionTask&&<TaskDiscussionDialog task={discussionTask} canUpload={canManage||discussionTask.assigneeId===member?.id} onClose={()=>setDiscussionTask(undefined)}/>}
   </main>;
