@@ -864,8 +864,8 @@ components:
         location: { type: string }
         status: { type: string, enum: [active, on_hold, completed] }
         progress: { type: integer }
-        startDate: { type: string, format: date }
-        endDate: { type: string, format: date }
+        startDate: { type: ["string", "null"], format: date }
+        endDate: { type: ["string", "null"], format: date }
         taskCount: { type: integer }
         completedTaskCount: { type: integer }
         updatedAt: { type: string, format: date-time }
@@ -881,14 +881,14 @@ components:
               items: { $ref: "#/components/schemas/Task" }
     ProjectInput:
       type: object
-      required: [name, client, location, startDate, endDate]
+      required: [name, client, location]
       properties:
         name: { type: string, minLength: 1 }
         client: { type: string }
         location: { type: string }
         description: { type: string }
-        startDate: { type: string, format: date }
-        endDate: { type: string, format: date }
+        startDate: { type: ["string", "null"], format: date }
+        endDate: { type: ["string", "null"], format: date }
     ProjectUpdate:
       type: object
       properties:
@@ -897,8 +897,8 @@ components:
         location: { type: string }
         description: { type: string }
         status: { type: string, enum: [active, on_hold, completed] }
-        startDate: { type: string, format: date }
-        endDate: { type: string, format: date }
+        startDate: { type: ["string", "null"], format: date }
+        endDate: { type: ["string", "null"], format: date }
     Task:
       type: object
       required: [id, projectId, projectName, title, description, category, priority, status, assigneeId, assigneeName, dueDate, updatedAt]

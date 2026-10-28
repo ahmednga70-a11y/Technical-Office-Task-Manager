@@ -14,6 +14,8 @@ export interface ProjectUpdate {
   location?: string;
   description?: string;
   status?: ProjectUpdateStatus;
-  startDate?: Date;
-  endDate?: Date;
+  /** @nullable */
+  startDate?: Date | null;
+  /** @nullable */
+  endDate?: Date | null;
 }

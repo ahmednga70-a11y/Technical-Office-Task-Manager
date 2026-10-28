@@ -477,8 +477,8 @@ export const ListProjectsResponseItem = zod.object({
   "location": zod.string(),
   "status": zod.enum(['active', 'on_hold', 'completed']),
   "progress": zod.number().int(),
-  "startDate": zod.coerce.date(),
-  "endDate": zod.coerce.date(),
+  "startDate": zod.coerce.date().nullable(),
+  "endDate": zod.coerce.date().nullable(),
   "taskCount": zod.number().int(),
   "completedTaskCount": zod.number().int(),
   "updatedAt": zod.coerce.date()
@@ -497,8 +497,8 @@ export const CreateProjectBody = zod.object({
   "client": zod.string(),
   "location": zod.string(),
   "description": zod.string().optional(),
-  "startDate": zod.coerce.date(),
-  "endDate": zod.coerce.date()
+  "startDate": zod.coerce.date().nullish(),
+  "endDate": zod.coerce.date().nullish()
 })
 
 export const CreateProjectResponse = zod.object({
@@ -508,8 +508,8 @@ export const CreateProjectResponse = zod.object({
   "location": zod.string(),
   "status": zod.enum(['active', 'on_hold', 'completed']),
   "progress": zod.number().int(),
-  "startDate": zod.coerce.date(),
-  "endDate": zod.coerce.date(),
+  "startDate": zod.coerce.date().nullable(),
+  "endDate": zod.coerce.date().nullable(),
   "taskCount": zod.number().int(),
   "completedTaskCount": zod.number().int(),
   "updatedAt": zod.coerce.date()
@@ -530,8 +530,8 @@ export const GetProjectResponse = zod.object({
   "location": zod.string(),
   "status": zod.enum(['active', 'on_hold', 'completed']),
   "progress": zod.number().int(),
-  "startDate": zod.coerce.date(),
-  "endDate": zod.coerce.date(),
+  "startDate": zod.coerce.date().nullable(),
+  "endDate": zod.coerce.date().nullable(),
   "taskCount": zod.number().int(),
   "completedTaskCount": zod.number().int(),
   "updatedAt": zod.coerce.date()
@@ -570,8 +570,8 @@ export const UpdateProjectBody = zod.object({
   "location": zod.string().optional(),
   "description": zod.string().optional(),
   "status": zod.enum(['active', 'on_hold', 'completed']).optional(),
-  "startDate": zod.coerce.date().optional(),
-  "endDate": zod.coerce.date().optional()
+  "startDate": zod.coerce.date().nullish(),
+  "endDate": zod.coerce.date().nullish()
 })
 
 export const UpdateProjectResponse = zod.object({
@@ -581,8 +581,8 @@ export const UpdateProjectResponse = zod.object({
   "location": zod.string(),
   "status": zod.enum(['active', 'on_hold', 'completed']),
   "progress": zod.number().int(),
-  "startDate": zod.coerce.date(),
-  "endDate": zod.coerce.date(),
+  "startDate": zod.coerce.date().nullable(),
+  "endDate": zod.coerce.date().nullable(),
   "taskCount": zod.number().int(),
   "completedTaskCount": zod.number().int(),
   "updatedAt": zod.coerce.date()

@@ -268,8 +268,10 @@ export interface Project {
   location: string;
   status: ProjectStatus;
   progress: number;
-  startDate: string;
-  endDate: string;
+  /** @nullable */
+  startDate: string | null;
+  /** @nullable */
+  endDate: string | null;
   taskCount: number;
   completedTaskCount: number;
   updatedAt: string;
@@ -335,8 +337,10 @@ export interface ProjectInput {
   client: string;
   location: string;
   description?: string;
-  startDate: string;
-  endDate: string;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
 }
 
 export type ProjectUpdateStatus = typeof ProjectUpdateStatus[keyof typeof ProjectUpdateStatus];
@@ -355,8 +359,10 @@ export interface ProjectUpdate {
   location?: string;
   description?: string;
   status?: ProjectUpdateStatus;
-  startDate?: string;
-  endDate?: string;
+  /** @nullable */
+  startDate?: string | null;
+  /** @nullable */
+  endDate?: string | null;
 }
 
 export type TaskInputCategory = typeof TaskInputCategory[keyof typeof TaskInputCategory];

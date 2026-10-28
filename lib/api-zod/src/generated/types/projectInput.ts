@@ -12,6 +12,8 @@ export interface ProjectInput {
   client: string;
   location: string;
   description?: string;
-  startDate: Date;
-  endDate: Date;
+  /** @nullable */
+  startDate?: Date | null;
+  /** @nullable */
+  endDate?: Date | null;
 }

@@ -973,7 +973,9 @@ router.post("/projects", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  if (toDateOnly(parsed.data.endDate) < toDateOnly(parsed.data.startDate)) {
+  const startDate = parsed.data.startDate ? toDateOnly(parsed.data.startDate) : null;
+  const endDate = parsed.data.endDate ? toDateOnly(parsed.data.endDate) : null;
+  if (startDate && endDate && endDate < startDate) {
     res.status(400).json({ error: "End date must be after the start date." });
     return;
   }
@@ -981,8 +983,8 @@ router.post("/projects", async (req, res): Promise<void> => {
     .insert(projectsTable)
     .values({
       ...parsed.data,
-      startDate: toDateOnly(parsed.data.startDate),
-      endDate: toDateOnly(parsed.data.endDate),
+      startDate,
+      endDate,
       createdById: manager.id,
     })
     .returning();
@@ -1033,11 +1035,18 @@ router.patch("/projects/:projectId", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  if (
-    parsed.data.startDate &&
-    parsed.data.endDate &&
-    toDateOnly(parsed.data.endDate) < toDateOnly(parsed.data.startDate)
-  ) {
+  const [existing] = await db.select({
+    startDate: projectsTable.startDate, endDate: projectsTable.endDate,
+  }).from(projectsTable).where(eq(projectsTable.id, params.data.projectId)).limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "Project not found." });
+    return;
+  }
+  const normalizedStart = parsed.data.startDate === undefined ? existing.startDate
+    : parsed.data.startDate === null ? null : toDateOnly(parsed.data.startDate);
+  const normalizedEnd = parsed.data.endDate === undefined ? existing.endDate
+    : parsed.data.endDate === null ? null : toDateOnly(parsed.data.endDate);
+  if (normalizedStart && normalizedEnd && normalizedEnd < normalizedStart) {
     res.status(400).json({ error: "End date must be after the start date." });
     return;
   }
@@ -1045,8 +1054,8 @@ router.patch("/projects/:projectId", async (req, res): Promise<void> => {
   const projectUpdates: Partial<typeof projectsTable.$inferInsert> = {
     ...projectFields,
   };
-  if (startDate) projectUpdates.startDate = toDateOnly(startDate);
-  if (endDate) projectUpdates.endDate = toDateOnly(endDate);
+  if (startDate !== undefined) projectUpdates.startDate = normalizedStart;
+  if (endDate !== undefined) projectUpdates.endDate = normalizedEnd;
   const [project] = await db
     .update(projectsTable)
     .set(projectUpdates)

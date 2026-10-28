@@ -69,8 +69,8 @@ export const projectsTable = pgTable(
     location: text("location").notNull().default(""),
     description: text("description").notNull().default(""),
     status: projectStatusEnum("status").notNull().default("active"),
-    startDate: date("start_date", { mode: "string" }).notNull(),
-    endDate: date("end_date", { mode: "string" }).notNull(),
+    startDate: date("start_date", { mode: "string" }),
+    endDate: date("end_date", { mode: "string" }),
     createdById: integer("created_by_id").references(
       () => officeMembersTable.id,
       { onDelete: "set null" },
