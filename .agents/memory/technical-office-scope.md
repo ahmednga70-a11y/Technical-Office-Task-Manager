@@ -19,3 +19,12 @@ available directly, without opening the general edit form.
 **How to apply:** Preserve direct progress controls and clearly named actions
 when changing task rows or mobile layouts; do not replace them with icon-only
 or hidden-menu actions.
+
+The application should focus on tasks: what is finished and what remains.
+Project start/end dates and project delivery deadlines are not important to the
+user's workflow; projects primarily group the tasks.
+
+**Why:** The user said: «المشروع كبداية ونهاية مش مهم ولا مهم معاد تسليمه ... الهدف اصلا انى اركز على المهام وايه اللي خلص منها وايه اللي لسه باقي».
+
+**How to apply:** Prioritize task completion, remaining work, and task progress
+in navigation, dashboards, and project summaries rather than project schedules.
