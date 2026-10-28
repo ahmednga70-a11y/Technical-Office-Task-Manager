@@ -757,10 +757,10 @@ components:
         id: { type: integer }
         type:
           type: string
-          enum: [task_assigned, task_returned, task_review, due_soon, overdue]
-        taskId: { type: integer }
+          enum: [task_assigned, task_returned, task_review, due_soon, overdue, task_updated, comment_added, file_added]
+        taskId: { type: ["integer", "null"] }
         projectId: { type: integer }
-        taskTitle: { type: string }
+        taskTitle: { type: ["string", "null"] }
         projectName: { type: string }
         message: { type: string }
         createdAt: { type: string, format: date-time }

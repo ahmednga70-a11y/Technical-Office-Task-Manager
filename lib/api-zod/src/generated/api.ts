@@ -240,10 +240,10 @@ export const ListOfficeNotificationsResponse = zod.object({
   "unreadCount": zod.number().int(),
   "notifications": zod.array(zod.object({
   "id": zod.number().int(),
-  "type": zod.enum(['task_assigned', 'task_returned', 'task_review', 'due_soon', 'overdue']),
-  "taskId": zod.number().int(),
+  "type": zod.enum(['task_assigned', 'task_returned', 'task_review', 'due_soon', 'overdue', 'task_updated', 'comment_added', 'file_added']),
+  "taskId": zod.number().int().nullable(),
   "projectId": zod.number().int(),
-  "taskTitle": zod.string(),
+  "taskTitle": zod.string().nullable(),
   "projectName": zod.string(),
   "message": zod.string(),
   "createdAt": zod.coerce.date(),

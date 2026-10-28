@@ -53,6 +53,7 @@ import {
 } from "@workspace/db";
 import { runDeadlineNotificationSweep } from "../services/deadlineNotifications";
 import { tryDispatchOfficePush } from "../services/officePush";
+import { recordOfficeChange } from "../services/officeChangeNotifications";
 import { officeSignUpUrl, usesExternalClerk } from "../lib/clerkConfiguration";
 import { officeProfileFailure } from "../lib/officeProfileFailure";
 import { hashOfficePassword } from "../lib/officePasswordAuth";
@@ -520,11 +521,11 @@ router.get("/office/notifications", async (req, res): Promise<void> => {
           project: projectsTable,
         })
         .from(officeNotificationsTable)
-        .innerJoin(
+        .leftJoin(
           tasksTable,
           eq(officeNotificationsTable.taskId, tasksTable.id),
         )
-        .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+        .innerJoin(projectsTable, eq(sql`coalesce(${tasksTable.projectId}, ${officeNotificationsTable.projectId})`, projectsTable.id))
         .where(eq(officeNotificationsTable.memberId, member.id))
         .orderBy(desc(officeNotificationsTable.createdAt))
         .limit(50)
@@ -535,15 +536,15 @@ router.get("/office/notifications", async (req, res): Promise<void> => {
           project: projectsTable,
         })
         .from(officeNotificationsTable)
-        .innerJoin(
+        .leftJoin(
           tasksTable,
           eq(officeNotificationsTable.taskId, tasksTable.id),
         )
-        .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+        .innerJoin(projectsTable, eq(sql`coalesce(${tasksTable.projectId}, ${officeNotificationsTable.projectId})`, projectsTable.id))
         .where(
           and(
             eq(officeNotificationsTable.memberId, member.id),
-            eq(tasksTable.assigneeId, member.id),
+            sql`(${tasksTable.assigneeId} = ${member.id} or (${officeNotificationsTable.taskId} is null and ${officeNotificationsTable.projectId} is not null))`,
           ),
         )
         .orderBy(desc(officeNotificationsTable.createdAt))
@@ -561,14 +562,14 @@ router.get("/office/notifications", async (req, res): Promise<void> => {
     : await db
         .select({ count: sql<number>`count(*)::int` })
         .from(officeNotificationsTable)
-        .innerJoin(
+        .leftJoin(
           tasksTable,
           eq(officeNotificationsTable.taskId, tasksTable.id),
         )
         .where(
           and(
             eq(officeNotificationsTable.memberId, member.id),
-            eq(tasksTable.assigneeId, member.id),
+            sql`(${tasksTable.assigneeId} = ${member.id} or (${officeNotificationsTable.taskId} is null and ${officeNotificationsTable.projectId} is not null))`,
             isNull(officeNotificationsTable.readAt),
           ),
         );
@@ -578,9 +579,9 @@ router.get("/office/notifications", async (req, res): Promise<void> => {
       notifications: visibleNotifications.map(({ notification, task, project }) => ({
         id: notification.id,
         type: notification.type,
-        taskId: task.id,
+        taskId: task?.id ?? null,
         projectId: project.id,
-        taskTitle: task.title,
+        taskTitle: task?.title ?? null,
         projectName: project.name,
         message: notification.message,
         createdAt: notification.createdAt,
@@ -614,8 +615,10 @@ router.patch(
       res.status(404).json({ error: "Notification not found." });
       return;
     }
-    const access = await requireTaskParticipant(req, res, notification.taskId);
-    if (!access) return;
+    if (notification.taskId !== null) {
+      const access = await requireTaskParticipant(req, res, notification.taskId);
+      if (!access) return;
+    }
     const readAt = notification.readAt ?? new Date();
     const [updated] = await db
       .update(officeNotificationsTable)
@@ -1203,15 +1206,20 @@ router.post("/tasks/:taskId/comments", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Comment cannot be empty." });
     return;
   }
-  const [comment] = await db
-    .insert(taskCommentsTable)
-    .values({
-      taskId: access.task.id,
-      authorId: access.member.id,
-      authorName: access.member.name,
-      body,
-    })
-    .returning();
+  const comment = await db.transaction(async tx => {
+    const [created] = await tx.insert(taskCommentsTable).values({
+      taskId: access.task.id, authorId: access.member.id,
+      authorName: access.member.name, body,
+    }).returning();
+    await recordOfficeChange(tx, {
+      taskId: access.task.id, projectId: access.task.projectId,
+      assigneeId: access.task.assigneeId, actorId: access.member.id,
+      type: "comment_added", eventKey: `comment:${created.id}`,
+      message: `أضاف ${access.member.name} رسالة في نقاش المهمة «${access.task.title}».`,
+    });
+    return created;
+  });
+  await tryDispatchOfficePush();
   res.status(201).json(CreateTaskCommentResponse.parse(comment));
 });
 
@@ -1404,12 +1412,23 @@ router.patch("/tasks/:taskId", async (req, res): Promise<void> => {
         });
       }
     }
-    if (notifications.length) {
+    const otherRecipients = notifications.filter(notification => notification.memberId !== member.id);
+    if (otherRecipients.length) {
       await tx
         .insert(officeNotificationsTable)
-        .values(notifications)
+        .values(otherRecipients)
         .onConflictDoNothing();
     }
+    const changed = Object.entries(taskUpdates).some(([key, value]) =>
+      key !== "updatedAt" && value !== existing[key as keyof typeof existing],
+    );
+    if (changed) await recordOfficeChange(tx, {
+      taskId: updated.id, projectId: updated.projectId, assigneeId: updated.assigneeId,
+      actorId: member.id, type: "task_updated",
+      eventKey: `task-updated:${updated.id}:${eventKey}`,
+      excludeMemberIds: otherRecipients.map(notification => notification.memberId),
+      message: `حدّث ${member.name} المهمة «${updated.title}»${existing.status !== updated.status ? `؛ الحالة: ${{ todo: "لم تبدأ", in_progress: "قيد التنفيذ", review: "للمراجعة", done: "مكتملة" }[updated.status as TaskStatus]}` : ""}.`,
+    });
     return [updated];
   });
   const taskDto = (await listTaskRows()).find((row) => row.id === task.id);

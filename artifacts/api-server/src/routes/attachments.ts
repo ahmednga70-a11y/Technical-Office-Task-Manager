@@ -21,6 +21,8 @@ import {
   tasksTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { recordOfficeChange } from "../services/officeChangeNotifications";
+import { tryDispatchOfficePush } from "../services/officePush";
 import {
   createOfficeDriveUploadSession,
   deleteOfficeDriveFile,
@@ -143,6 +145,32 @@ async function removePendingAttachment(
   await db
     .delete(officeAttachmentsTable)
     .where(eq(officeAttachmentsTable.id, attachment.id));
+}
+
+async function finishAttachment(
+  attachment: typeof officeAttachmentsTable.$inferSelect,
+  objectPath = attachment.objectPath,
+) {
+  const result = await db.transaction(async tx => {
+    const [completed] = await tx.update(officeAttachmentsTable)
+      .set({ status: "ready", objectPath })
+      .where(and(eq(officeAttachmentsTable.id, attachment.id), eq(officeAttachmentsTable.status, "pending")))
+      .returning();
+    if (completed) {
+      const [task] = completed.taskId === null ? [] : await tx.select().from(tasksTable)
+        .where(eq(tasksTable.id, completed.taskId)).limit(1);
+      const projectId = task?.projectId ?? completed.projectId;
+      if (projectId !== null) await recordOfficeChange(tx, {
+        taskId: completed.taskId, projectId, assigneeId: task?.assigneeId,
+        actorId: completed.uploadedById, type: "file_added",
+        eventKey: `file-ready:${completed.id}`,
+        message: `أضاف ${completed.uploadedByName} الملف «${completed.fileName}»${task ? ` للمهمة «${task.title}»` : " إلى ملفات المشروع"}.`,
+      });
+    }
+    return completed ?? { ...attachment, status: "ready" as const, objectPath };
+  });
+  await tryDispatchOfficePush();
+  return result;
 }
 
 async function deleteAttachmentObject(objectPath: string): Promise<void> {
@@ -467,21 +495,7 @@ router.post(
           });
           return;
         }
-        const [completed] = await db
-          .update(officeAttachmentsTable)
-          .set({ objectPath: officeDriveFilePath(fileId), status: "ready" })
-          .where(
-            and(
-              eq(officeAttachmentsTable.id, attachment.id),
-              eq(officeAttachmentsTable.status, "pending"),
-            ),
-          )
-          .returning();
-        const readyAttachment = completed ?? {
-          ...attachment,
-          objectPath: officeDriveFilePath(fileId),
-          status: "ready" as const,
-        };
+        const readyAttachment = await finishAttachment(attachment, officeDriveFilePath(fileId));
         res.json(
           CompleteOfficeAttachmentUploadResponse.parse(
             attachmentDto(
@@ -538,23 +552,11 @@ router.post(
         });
         return;
       }
-      const [completed] = await db
-        .update(officeAttachmentsTable)
-        .set({ status: "ready" })
-        .where(
-          and(
-            eq(officeAttachmentsTable.id, attachment.id),
-            eq(officeAttachmentsTable.status, "pending"),
-          ),
-        )
-        .returning();
-      const readyAttachment = completed ?? attachment;
+      const readyAttachment = await finishAttachment(attachment);
       res.json(
         CompleteOfficeAttachmentUploadResponse.parse(
           attachmentDto(
-            completed
-              ? readyAttachment
-              : { ...readyAttachment, status: "ready" },
+            readyAttachment,
             access.isManager || readyAttachment.uploadedById === member.id,
           ),
         ),

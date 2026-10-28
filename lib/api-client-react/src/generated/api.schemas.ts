@@ -104,14 +104,19 @@ export const OfficeNotificationType = {
   task_review: 'task_review',
   due_soon: 'due_soon',
   overdue: 'overdue',
+  task_updated: 'task_updated',
+  comment_added: 'comment_added',
+  file_added: 'file_added',
 } as const;
 
 export interface OfficeNotification {
   id: number;
   type: OfficeNotificationType;
-  taskId: number;
+  /** @nullable */
+  taskId: number | null;
   projectId: number;
-  taskTitle: string;
+  /** @nullable */
+  taskTitle: string | null;
   projectName: string;
   message: string;
   createdAt: string;

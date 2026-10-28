@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Bell, Check, Clock3, FileCheck2, RotateCcw, Volume2, VolumeX, X } from 'lucide-react';
+import { AlertCircle, Bell, Check, Clock3, FileCheck2, MessageSquare, Paperclip, RotateCcw, Volume2, VolumeX, X } from 'lucide-react';
 import { Link } from 'wouter';
 import {
   getListOfficeNotificationsQueryKey,
@@ -19,6 +19,9 @@ const notificationCopy: Record<OfficeNotification['type'], { label: string; tone
   task_review: { label: 'بانتظار المراجعة', tone: 'review', icon: FileCheck2 },
   due_soon: { label: 'موعد قريب', tone: 'due', icon: Clock3 },
   overdue: { label: 'متأخرة', tone: 'overdue', icon: AlertCircle },
+  task_updated: { label: 'تحديث المهمة', tone: 'assigned', icon: RotateCcw },
+  comment_added: { label: 'رسالة جديدة', tone: 'review', icon: MessageSquare },
+  file_added: { label: 'ملف جديد', tone: 'assigned', icon: Paperclip },
 };
 
 function formatRelativeTime(value: string) {
@@ -42,7 +45,7 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
   const notificationsQuery = useListOfficeNotifications({
     query: {
       queryKey,
-      refetchInterval: 60_000,
+      refetchInterval: 15_000,
       refetchIntervalInBackground: false,
     },
   });
@@ -118,7 +121,7 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
                   </span>
                 )}
               </div>
-              <Dialog.Description className="mt-1 text-xs text-[#63736a]">التكليفات ومواعيد التسليم ومتابعة المهام</Dialog.Description>
+              <Dialog.Description className="mt-1 text-xs text-[#63736a]">المهام وتغييراتها ورسائل النقاش والملفات الجديدة</Dialog.Description>
             </div>
             <button
               type="button"
@@ -189,12 +192,12 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
                   <Check size={21} aria-hidden="true" />
                 </span>
                 <p className="mt-3 text-sm font-bold text-[#304743]">كل شيء هادئ هنا</p>
-                <p className="mt-1 max-w-[260px] text-xs leading-6 text-[#78837d]">ستظهر هنا التكليفات ومواعيد التسليم وأي مهمة تحتاج إلى انتباهك.</p>
+                <p className="mt-1 max-w-[260px] text-xs leading-6 text-[#78837d]">ستظهر هنا تحديثات مهامك ورسائل النقاش والملفات الجديدة ومواعيد التسليم.</p>
               </div>
             ) : (
               <ul className="divide-y divide-[#eeebe2]">
                 {notifications.map((notification) => {
-                  const copy = notificationCopy[notification.type];
+                  const copy = notificationCopy[notification.type] ?? notificationCopy.task_updated;
                   const Icon = copy.icon;
                   const isUnread = !notification.readAt;
                   const isMarkingThis = markRead.isPending && markRead.variables?.notificationId === notification.id;
@@ -217,23 +220,23 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
                             </time>
                           </div>
                           <Link
-                            href={`/projects/${notification.projectId}?taskId=${notification.taskId}`}
+                            href={`/projects/${notification.projectId}${notification.taskId === null ? '' : `?taskId=${notification.taskId}`}`}
                             className="mt-1 block rounded-sm text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]"
                             onClick={closeDropdown}
                             data-testid={`link-notification-task-${notification.id}`}
                           >
-                             <span className="block break-words text-sm font-extrabold leading-6 text-[#203b39]">{notification.taskTitle}</span>
+                             <span className="block break-words text-sm font-extrabold leading-6 text-[#203b39]">{notification.taskTitle ?? 'ملفات المشروع'}</span>
                              <span className="mt-0.5 block break-words text-xs leading-5 text-[#5d6e63]">{notification.projectName}</span>
                              <span className="mt-1.5 block break-words text-sm leading-6 text-[#4c6056]">{notification.message}</span>
                           </Link>
                           <div className="mt-2 flex min-h-6 items-center justify-between gap-2">
                             <Link
-                              href={`/projects/${notification.projectId}?taskId=${notification.taskId}`}
+                              href={`/projects/${notification.projectId}${notification.taskId === null ? '' : `?taskId=${notification.taskId}`}`}
                                className="inline-flex min-h-11 items-center gap-1 text-xs font-bold text-[#365e58] hover:text-[#294641] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469]"
                               onClick={closeDropdown}
                               data-testid={`link-open-notification-${notification.id}`}
                             >
-                              افتح المهمة
+                  {notification.taskId === null ? 'افتح المشروع' : 'افتح المهمة'}
                               <span aria-hidden="true">←</span>
                             </Link>
                             {isUnread && (
@@ -242,7 +245,7 @@ export default function NotificationBell({ memberId }: { memberId?: number }) {
                                  className="min-h-11 rounded-lg border border-[#dce3d8] px-2 py-1 text-xs font-bold text-[#52675a] transition hover:bg-[#e9eee7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3c7469] disabled:cursor-wait disabled:opacity-60"
                                 onClick={() => handleMarkRead(notification.id)}
                                 disabled={markRead.isPending}
-                                aria-label={`وضع إشعار ${notification.taskTitle} كمقروء`}
+                                aria-label={`وضع إشعار ${notification.taskTitle ?? notification.projectName} كمقروء`}
                                 data-testid={`button-mark-notification-read-${notification.id}`}
                               >
                                 {isMarkingThis ? 'جارٍ الحفظ…' : 'وضع كمقروء'}

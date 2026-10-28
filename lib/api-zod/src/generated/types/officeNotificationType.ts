@@ -15,4 +15,7 @@ export const OfficeNotificationType = {
   task_review: 'task_review',
   due_soon: 'due_soon',
   overdue: 'overdue',
+  task_updated: 'task_updated',
+  comment_added: 'comment_added',
+  file_added: 'file_added',
 } as const;

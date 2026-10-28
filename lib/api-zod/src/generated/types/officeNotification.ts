@@ -10,9 +10,11 @@ import type { OfficeNotificationType } from './officeNotificationType';
 export interface OfficeNotification {
   id: number;
   type: OfficeNotificationType;
-  taskId: number;
+  /** @nullable */
+  taskId: number | null;
   projectId: number;
-  taskTitle: string;
+  /** @nullable */
+  taskTitle: string | null;
   projectName: string;
   message: string;
   createdAt: Date;

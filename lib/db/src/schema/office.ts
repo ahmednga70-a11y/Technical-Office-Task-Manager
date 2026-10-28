@@ -180,8 +180,9 @@ export const officeNotificationsTable = pgTable(
       .notNull()
       .references(() => officeMembersTable.id, { onDelete: "cascade" }),
     taskId: integer("task_id")
-      .notNull()
       .references(() => tasksTable.id, { onDelete: "cascade" }),
+    projectId: integer("project_id")
+      .references(() => projectsTable.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     message: text("message").notNull(),
     dedupeKey: text("dedupe_key").notNull(),

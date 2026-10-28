@@ -3,7 +3,7 @@ import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-or
 import {
   db, officeMembersTable as members, officeNotificationsTable as notifications,
   officePushDeliveriesTable as deliveries, officePushSubscriptionsTable as subscriptions,
-  tasksTable as tasks,
+  tasksTable as tasks, projectsTable as projects,
 } from "@workspace/db";
 import { decryptSubscription } from "../lib/officePushSecurity";
 import { logger } from "../lib/logger";
@@ -22,6 +22,9 @@ const labels: Record<string, string> = {
   task_review: "لديك مهمة بانتظار المراجعة.",
   due_soon: "اقترب موعد تسليم إحدى مهام المكتب.",
   overdue: "توجد مهمة متأخرة تحتاج إلى متابعتك.",
+  task_updated: "تغيّرت بيانات أو حالة إحدى مهامك.",
+  comment_added: "وصلت رسالة جديدة في نقاش إحدى مهامك.",
+  file_added: "أُضيف ملف جديد إلى مساحة العمل.",
 };
 
 // Every device has a durable delivery record. A lease prevents concurrent
@@ -37,10 +40,11 @@ export async function dispatchOfficePush(options: {
   const canRetry = and(isNull(deliveries.sentAt), lt(deliveries.attempts, 5),
     lte(deliveries.nextAttemptAt, now), or(isNull(deliveries.lockedUntil), lt(deliveries.lockedUntil, now)));
   const candidates = await db.select({
-    notification: notifications, subscription: subscriptions, projectId: tasks.projectId,
+    notification: notifications, subscription: subscriptions, projectId: projects.id,
   }).from(notifications)
     .innerJoin(subscriptions, eq(subscriptions.memberId, notifications.memberId))
-    .innerJoin(tasks, eq(tasks.id, notifications.taskId))
+    .leftJoin(tasks, eq(tasks.id, notifications.taskId))
+    .innerJoin(projects, eq(projects.id, sql`coalesce(${tasks.projectId}, ${notifications.projectId})`))
     .innerJoin(members, eq(members.id, notifications.memberId))
     .leftJoin(deliveries, and(eq(deliveries.notificationId, notifications.id), eq(deliveries.subscriptionId, subscriptions.id)))
     .where(and(
@@ -48,7 +52,11 @@ export async function dispatchOfficePush(options: {
       options.notificationIds ? inArray(notifications.id, options.notificationIds) : undefined,
       gte(notifications.createdAt, subscriptions.createdAt),
       gte(notifications.createdAt, new Date(Date.now() - 14 * 86_400_000)),
-      or(eq(tasks.assigneeId, members.id), and(eq(members.role, "manager"), sql`lower(trim(${members.email})) = ${managerEmail}`)),
+      or(
+        and(isNull(notifications.taskId), sql`${notifications.projectId} is not null`),
+        eq(tasks.assigneeId, members.id),
+        and(eq(members.role, "manager"), sql`lower(trim(${members.email})) = ${managerEmail}`),
+      ),
       or(isNull(deliveries.id), canRetry),
     )).orderBy(asc(notifications.createdAt)).limit(100);
   const summary = { sent: 0, failed: 0 };
@@ -68,7 +76,7 @@ export async function dispatchOfficePush(options: {
         const payload = JSON.stringify({
           id: notification.id, title: "فريق المكتب الفني",
           body: labels[notification.type] ?? "لديك تنبيه جديد في مهام المكتب.",
-          path: `projects/${projectId}?taskId=${notification.taskId}`,
+          path: `projects/${projectId}${notification.taskId === null ? "" : `?taskId=${notification.taskId}`}`,
         });
         const response = await (options.send ?? webpush.sendNotification)(decryptSubscription(subscription.subscriptionCiphertext), payload, {
           TTL: 86_400, urgency: "normal", timeout: 3000,

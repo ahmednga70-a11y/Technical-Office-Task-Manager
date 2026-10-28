@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { encryptSubscription, decryptSubscription, endpointHash, isAllowedPushEndpoint } from "../lib/officePushSecurity";
 import { dispatchOfficePush } from "./officePush";
+import { recordOfficeChange } from "./officeChangeNotifications";
 
 test("push encryption, origin restrictions, worker routing and device delivery", async t => {
   // This suite writes disposable fixtures ONLY to the local development DB.
@@ -74,6 +75,7 @@ test("push encryption, origin restrictions, worker routing and device delivery",
   const token = randomUUID();
   let memberId: number | undefined;
   let projectId: number | undefined;
+  const extraMemberIds: number[] = [];
   try {
     const [member] = await db.insert(members).values({ clerkUserId: `push-fixture-${token}`, name: `Push fixture ${token}`, email: `push-${token}@example.invalid`, role: "engineer" }).returning();
     memberId = member.id;
@@ -132,9 +134,88 @@ test("push encryption, origin restrictions, worker routing and device delivery",
       await dispatchOfficePush({ notificationIds: [notification.id], send: async () => { throw { statusCode: 410 }; } });
       assert.equal((await db.select().from(subscriptions).where(eq(subscriptions.id, device.id))).length, 0);
     });
+    await t.test("change events exclude the actor and unrelated engineers, dedupe and roll back with the mutation", async () => {
+      const [manager] = await db.insert(members).values({
+        clerkUserId: `events-manager-${token}`, name: "Events manager",
+        email: `events-manager-${token}@example.invalid`, role: "manager",
+      }).returning();
+      const [unrelated] = await db.insert(members).values({
+        clerkUserId: `events-other-${token}`, name: "Unrelated fixture",
+        email: `events-other-${token}@example.invalid`, role: "engineer",
+      }).returning();
+      extraMemberIds.push(manager.id, unrelated.id);
+      const previousManager = process.env.OFFICE_MANAGER_EMAIL;
+      process.env.OFFICE_MANAGER_EMAIL = manager.email;
+      try {
+        const rollback = new Error("Rollback disposable event fixtures");
+        await assert.rejects(db.transaction(async tx => {
+          for (const type of ["comment_added", "file_added", "task_updated"] as const) {
+            const change = {
+              taskId: task.id, projectId: project.id, assigneeId: member.id,
+              actorId: manager.id, type, message: "Fixture event",
+              eventKey: `test-${token}-${type}`,
+            };
+            await recordOfficeChange(tx, change);
+            await recordOfficeChange(tx, change);
+            const rows = await tx.select().from(notifications).where(eq(notifications.dedupeKey, change.eventKey));
+            assert.equal(rows.length, 1, "one entry for the assignee, not actor or unrelated engineer");
+            assert.equal(rows[0].memberId, member.id);
+          }
+          await recordOfficeChange(tx, {
+            taskId: task.id, projectId: project.id, assigneeId: member.id,
+            actorId: member.id, type: "comment_added", message: "Engineer replied",
+            eventKey: `test-${token}-reply`,
+          });
+          const reply = await tx.select().from(notifications).where(eq(notifications.dedupeKey, `test-${token}-reply`));
+          assert.deepEqual(reply.map(row => row.memberId), [manager.id]);
+          // Project files work without a task; all members can read project files.
+          // Roll back the transaction so no real inbox ever receives fixture data.
+          await recordOfficeChange(tx, {
+            taskId: null, projectId: project.id, actorId: manager.id,
+            type: "file_added", message: "Project file fixture", eventKey: `test-${token}-project`,
+          });
+          const projectRows = await tx.select().from(notifications).where(eq(notifications.dedupeKey, `test-${token}-project`));
+          assert.ok(projectRows.some(row => row.memberId === member.id));
+          assert.ok(projectRows.some(row => row.memberId === unrelated.id));
+          assert.ok(projectRows.every(row => row.taskId === null && row.projectId === project.id && row.memberId !== manager.id));
+          throw rollback;
+        }), error => error === rollback);
+        const leaked = await db.select().from(notifications).where(eq(notifications.dedupeKey, `test-${token}-project`));
+        assert.equal(leaked.length, 0, "rolled-back writes must not leak inbox entries");
+      } finally {
+        if (previousManager === undefined) delete process.env.OFFICE_MANAGER_EMAIL;
+        else process.env.OFFICE_MANAGER_EMAIL = previousManager;
+      }
+    });
+    await t.test("project-only file push links to the project and delivers once", async () => {
+      const [notification] = await db.insert(notifications).values({
+        memberId: member.id, projectId: project.id, taskId: null,
+        type: "file_added", message: "Private fixture filename", dedupeKey: `project-push-${token}`,
+      }).returning();
+      const [projectDevice] = await db.insert(subscriptions).values({
+        memberId: member.id, endpointHash: endpointHash(subscription.endpoint),
+        subscriptionCiphertext: encryptSubscription(subscription), createdAt: new Date(Date.now() - 60_000),
+      }).onConflictDoUpdate({ target: subscriptions.endpointHash, set: { memberId: member.id } }).returning();
+      let payload: { path: string; body: string } | undefined;
+      const send = (async (_subscription, body) => {
+        payload = JSON.parse(String(body));
+        return { statusCode: 201, body: "", headers: {} };
+      }) as typeof webpush.sendNotification;
+      await dispatchOfficePush({ notificationIds: [notification.id], send });
+      assert.equal(payload?.path, `projects/${project.id}`);
+      assert.ok(!payload?.body.includes("Private fixture"));
+      let repeated = 0;
+      await dispatchOfficePush({ notificationIds: [notification.id], send: (async () => {
+        repeated++;
+        return { statusCode: 201, body: "", headers: {} };
+      }) as typeof webpush.sendNotification });
+      assert.equal(repeated, 0);
+      assert.ok(projectDevice);
+    });
   } finally {
     if (projectId) await db.delete(projects).where(eq(projects.id, projectId));
     if (memberId) await db.delete(members).where(eq(members.id, memberId));
+    for (const id of extraMemberIds) await db.delete(members).where(eq(members.id, id));
     await pool.end();
   }
 });

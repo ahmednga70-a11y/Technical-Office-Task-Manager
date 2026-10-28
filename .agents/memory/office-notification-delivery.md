@@ -19,3 +19,11 @@ than introducing an unapproved upgrade or claiming minute-level scheduling.
 **How to apply:** Verify current provider limits before increasing frequency.
 An accepted push-service response or simulated browser test is not proof that a
 real phone displayed/sounded the alert while closed.
+
+Notify the relevant users about new tasks, task changes, discussion messages,
+and newly added files, not just deadlines.
+
+**Why:** The user asked for notifications «لو فيه اى تغيير في الابلكيشن سواءمهمة جديدة او شات او ملف اتظاف».
+
+**How to apply:** Keep these event categories covered when adding or changing
+task, discussion, and file workflows, while preserving access permissions.
