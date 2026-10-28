@@ -35,6 +35,8 @@ import {
 } from '@/components/OfficePasswordAuth';
 import { classifyOfficeAccessFailure, type OfficeAccessFailure } from '@/lib/office-access-failure';
 import NotFound from '@/pages/not-found';
+import FollowPage from '@/pages/FollowPage';
+import ShareLinksPanel from '@/components/ShareLinksPanel';
 import '@/index.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 20_000, retry: 1 } } });
@@ -478,6 +480,7 @@ function ProjectsPage() {
   const submit=(data:ProjectInput & {status?:Project['status']})=>{const {status:_status,...projectInput}=data;create.mutate({data:projectInput},{onSuccess:()=>{client.invalidateQueries({queryKey:getListProjectsQueryKey()});client.invalidateQueries({queryKey:getGetOfficeDashboardQueryKey()});setModal(false);}});};
   return <main className="page-content"><PageTitle eyebrow="ملف الشغل" title="المشاريع" description="المشاريع مجرد تجميع للمهام: شوف اللي خلص واللي فاضل في كل مشروع." action={canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)} data-testid="button-create-project"><Plus size={17}/> مشروع جديد</button>}/>
     <div className="panel mb-6 flex flex-wrap items-center gap-3 p-4"><div className="relative min-w-[220px] flex-1"><Search size={17} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8a938c]"/><input className="field pr-10" value={search} onChange={e=>setSearch(e.target.value)} placeholder="دوّر باسم المشروع أو العميل..." data-testid="input-search-projects"/></div><div className="flex items-center gap-2 text-xs text-[#849089]"><SlidersHorizontal size={15}/>{projects?.length||0} مشروع</div></div>
+    {canManage&&<ShareLinksPanel projects={projects||[]}/>}
     {isLoading?<SkeletonRows/>:isError?<ErrorState retry={()=>refetch()}/>:
       filtered.length?<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filtered.map((project,i)=><ProjectCard key={project.id} project={project} index={i}/>)}</div>:
        <EmptyState title={search?'ملقيناش نتيجة':'ابدأ بأول مشروع'} body={search?'جرّب كلمة بحث تانية أو امسح البحث.':'ضيف مشروعك الأول، وبعدها رتّب المهام والمسؤوليات جوّاه.'} action={!search&&canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}><Plus size={16}/> مشروع جديد</button>}/>}
@@ -712,6 +715,7 @@ function ClerkProviderWithRoutes() {
   </ClerkProvider>;
 }
 function App() {
+  if(stripBase(window.location.pathname).replace(/\/$/,'')==='/follow') return <WouterRouter base={basePath}><FollowPage/></WouterRouter>;
   if(passwordAuthEnabled) return <WouterRouter base={basePath}><PasswordProviderWithRoutes/></WouterRouter>;
   if(!clerkPubKey) return <AuthStatus state="missing"/>;
   return <WouterRouter base={basePath}><ClerkProviderWithRoutes/></WouterRouter>;

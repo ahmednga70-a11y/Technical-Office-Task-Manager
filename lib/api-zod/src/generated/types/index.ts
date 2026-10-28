@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './createOfficeShareLink201';
 export * from './dashboardOverview';
 export * from './dashboardOverviewStatusBreakdownItem';
 export * from './dashboardOverviewStatusBreakdownItemStatus';
@@ -38,6 +39,12 @@ export * from './officePushDeviceState';
 export * from './officePushEndpoint';
 export * from './officePushRegistration';
 export * from './officePushRegistrationKeys';
+export * from './officeSharedReport';
+export * from './officeSharedReportProjectsItem';
+export * from './officeShareLink';
+export * from './officeShareLinkInput';
+export * from './officeShareLinkInputScope';
+export * from './officeShareLinkScope';
 export * from './project';
 export * from './projectDetails';
 export * from './projectInput';

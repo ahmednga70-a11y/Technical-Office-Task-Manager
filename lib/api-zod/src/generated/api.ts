@@ -8,6 +8,110 @@
 import * as zod from 'zod';
 
 
+export const ListOfficeShareLinksResponseItem = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "scope": zod.enum(['all', 'selected']),
+  "projectIds": zod.array(zod.number().int()),
+  "createdAt": zod.coerce.date(),
+  "revokedAt": zod.coerce.date().nullable()
+})
+export const ListOfficeShareLinksResponse = zod.array(ListOfficeShareLinksResponseItem)
+
+
+export const createOfficeShareLinkBodyTitleMax = 120;
+
+
+export const createOfficeShareLinkBodyProjectIdsMax = 500;
+
+
+
+export const CreateOfficeShareLinkBody = zod.object({
+  "title": zod.string().min(1).max(createOfficeShareLinkBodyTitleMax),
+  "scope": zod.enum(['all', 'selected']),
+  "projectIds": zod.array(zod.number().int().min(1)).max(createOfficeShareLinkBodyProjectIdsMax)
+})
+
+export const CreateOfficeShareLinkResponse = zod.object({
+  "link": zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "scope": zod.enum(['all', 'selected']),
+  "projectIds": zod.array(zod.number().int()),
+  "createdAt": zod.coerce.date(),
+  "revokedAt": zod.coerce.date().nullable()
+}),
+  "token": zod.string()
+})
+
+
+
+
+
+export const RevokeOfficeShareLinkParams = zod.object({
+  "linkId": zod.coerce.number().int().min(1)
+})
+
+export const RevokeOfficeShareLinkResponse = zod.void()
+
+
+export const getOfficeSharedReportHeaderXOfficeShareRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const GetOfficeSharedReportHeader = zod.object({
+  "X-Office-Share": zod.string().regex(getOfficeSharedReportHeaderXOfficeShareRegExp)
+})
+
+export const GetOfficeSharedReportResponse = zod.object({
+  "title": zod.string(),
+  "updatedAt": zod.coerce.date(),
+  "projects": zod.array(zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "description": zod.string()
+})),
+  "tasks": zod.array(zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int(),
+  "projectName": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.enum(['shop_drawing', 'submittal', 'rfi', 'quantity_takeoff', 'coordination', 'other']),
+  "priority": zod.enum(['low', 'medium', 'high', 'urgent']),
+  "status": zod.enum(['todo', 'in_progress', 'review', 'done']),
+  "assigneeId": zod.number().int().nullable(),
+  "assigneeName": zod.string().nullable(),
+  "dueDate": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "files": zod.array(zod.object({
+  "id": zod.number().int(),
+  "projectId": zod.number().int().nullable(),
+  "taskId": zod.number().int().nullable(),
+  "uploadedByName": zod.string(),
+  "fileName": zod.string(),
+  "contentType": zod.string(),
+  "size": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+}))
+})
+
+
+
+
+
+export const GetOfficeSharedFileParams = zod.object({
+  "attachmentId": zod.coerce.number().int().min(1)
+})
+
+export const GetOfficeSharedFileHeader = zod.object({
+  "X-Office-Share": zod.string()
+})
+
+export const GetOfficeSharedFileResponse = zod.unknown()
+
+
 /**
  * Returns server health status
  * @summary Health check

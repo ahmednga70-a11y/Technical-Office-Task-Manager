@@ -42,3 +42,13 @@ Task file uploads should be separate from the task conversation.
 
 **How to apply:** Keep task files and chat in clearly separate sections when
 changing the discussion interface.
+
+Project managers may receive read-only follow-up links covering either all
+projects or one or more selected projects, showing tasks, assignees, progress,
+and files without settings or any create, edit, or delete capability.
+
+**Why:** The user requested external follow-up access and explicitly expanded
+the scope to «كل المشاريع ... او احدد مشروع واحد بس او اكتر».
+
+**How to apply:** Preserve per-link project scope and server-enforced read-only
+access. Do not treat a follow-up link as an office membership or login session.

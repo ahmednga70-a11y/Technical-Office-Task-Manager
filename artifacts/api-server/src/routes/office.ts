@@ -292,7 +292,7 @@ async function listProjectRows() {
   });
 }
 
-async function managerOnly(req: Request, res: Response) {
+export async function managerOnly(req: Request, res: Response) {
   const member = await requireMember(req, res);
   if (!member) return undefined;
   const managerEmail = configuredManagerEmail();

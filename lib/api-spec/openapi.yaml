@@ -13,6 +13,101 @@ tags:
   - name: office
     description: Technical office workspace
 paths:
+  /office/share-links:
+    get:
+      operationId: listOfficeShareLinks
+      tags: [office]
+      responses:
+        "200":
+          description: Manager-owned read-only links; tokens are never returned again
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeShareLink"
+    post:
+      operationId: createOfficeShareLink
+      tags: [office]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfficeShareLinkInput"
+      responses:
+        "201":
+          description: New token shown once; place in URL fragment, never query string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [link, token]
+                properties:
+                  link:
+                    $ref: "#/components/schemas/OfficeShareLink"
+                  token:
+                    type: string
+  /office/share-links/{linkId}:
+    parameters:
+      - in: path
+        name: linkId
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+    delete:
+      operationId: revokeOfficeShareLink
+      tags: [office]
+      responses:
+        "204":
+          description: Link revoked
+  /office/shared:
+    get:
+      operationId: getOfficeSharedReport
+      tags: [office]
+      parameters:
+        - in: header
+          name: X-Office-Share
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-f0-9]{64}$"
+      responses:
+        "200":
+          description: Live read-only report for exactly the linked scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeSharedReport"
+        "404":
+          description: Link unavailable or revoked
+  /office/shared/files/{attachmentId}:
+    get:
+      operationId: getOfficeSharedFile
+      tags: [office]
+      parameters:
+        - in: path
+          name: attachmentId
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - in: header
+          name: X-Office-Share
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Authorized file bytes; no storage URL exposed
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Link or file unavailable
   /healthz:
     get:
       operationId: healthCheck
@@ -669,6 +764,73 @@ paths:
           description: Task not found
 components:
   schemas:
+    OfficeShareLinkInput:
+      type: object
+      required: [title, scope, projectIds]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        scope:
+          type: string
+          enum: [all, selected]
+        projectIds:
+          type: array
+          maxItems: 500
+          items:
+            type: integer
+            minimum: 1
+    OfficeShareLink:
+      type: object
+      required: [id, title, scope, projectIds, createdAt, revokedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        scope:
+          type: string
+          enum: [all, selected]
+        projectIds:
+          type: array
+          items:
+            type: integer
+        createdAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: [string, "null"]
+          format: date-time
+    OfficeSharedReport:
+      type: object
+      required: [title, projects, tasks, files, updatedAt]
+      properties:
+        title:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        projects:
+          type: array
+          items:
+            type: object
+            required: [id, name, description]
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              description:
+                type: string
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficeAttachment"
     HealthStatus:
       type: object
       properties:

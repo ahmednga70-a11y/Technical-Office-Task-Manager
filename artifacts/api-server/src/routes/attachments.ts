@@ -591,6 +591,17 @@ router.get(
     }
     if (!(await authorizeAttachment(req, res, attachment))) return;
 
+    await sendOfficeAttachment(res, attachment);
+  },
+);
+
+// Authorization belongs to the calling route. This helper never returns a
+// public storage URL and preserves the existing private streaming behavior.
+export async function sendOfficeAttachment(
+  res: Response,
+  attachment: typeof officeAttachmentsTable.$inferSelect,
+  forceDownload = false,
+): Promise<void> {
     try {
       const driveFileId = parseOfficeDriveFilePath(attachment.objectPath);
       let stream: NodeJS.ReadableStream;
@@ -612,7 +623,7 @@ router.get(
         /['()*]/g,
         (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
       );
-      const disposition = INLINE_CONTENT_TYPES.has(attachment.contentType)
+      const disposition = !forceDownload && INLINE_CONTENT_TYPES.has(attachment.contentType)
         ? "inline"
         : "attachment";
       res.setHeader("Content-Type", attachment.contentType);
@@ -640,8 +651,7 @@ router.get(
       logger.error({ err: error, attachmentId: attachment.id }, "Could not open office attachment");
       res.status(503).json({ error: "تعذّر فتح الملف." });
     }
-  },
-);
+}
 
 router.delete(
   "/office/attachments/:attachmentId",

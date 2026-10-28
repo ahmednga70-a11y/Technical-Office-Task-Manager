@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CreateOfficeShareLink201,
   DashboardOverview,
   HealthStatus,
   ListTasksParams,
@@ -42,6 +43,9 @@ import type {
   OfficePushDeviceState,
   OfficePushEndpoint,
   OfficePushRegistration,
+  OfficeShareLink,
+  OfficeShareLinkInput,
+  OfficeSharedReport,
   Project,
   ProjectDetails,
   ProjectInput,
@@ -80,6 +84,369 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListOfficeShareLinksUrl = () => {
+
+
+
+
+  return `/api/office/share-links`
+}
+
+export const listOfficeShareLinks = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeShareLink[]> => {
+
+  return customFetch<OfficeShareLink[]>(getListOfficeShareLinksUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeShareLinksQueryKey = () => {
+    return [
+    `/api/office/share-links`
+    ] as const;
+    }
+
+
+export const getListOfficeShareLinksQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeShareLinks>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeShareLinks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeShareLinksQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeShareLinks>>> = ({ signal }) => listOfficeShareLinks({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeShareLinks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeShareLinksQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeShareLinks>>>
+export type ListOfficeShareLinksQueryError = ErrorType<unknown>
+
+
+
+export function useListOfficeShareLinks<TData = Awaited<ReturnType<typeof listOfficeShareLinks>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeShareLinks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeShareLinksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateOfficeShareLinkUrl = () => {
+
+
+
+
+  return `/api/office/share-links`
+}
+
+export const createOfficeShareLink = async (officeShareLinkInput: OfficeShareLinkInput, options?: Parameters<typeof customFetch>[1]): Promise<CreateOfficeShareLink201> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreateOfficeShareLink201>(getCreateOfficeShareLinkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(officeShareLinkInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOfficeShareLinkMutationKey = () => ['createOfficeShareLink'] as const;
+
+export const getCreateOfficeShareLinkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeShareLink>>, TError,CreateOfficeShareLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOfficeShareLink>>, TError,CreateOfficeShareLinkMutationVariables, TContext> => {
+
+const mutationKey = getCreateOfficeShareLinkMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOfficeShareLink>>, CreateOfficeShareLinkMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createOfficeShareLink(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOfficeShareLinkMutationResult = NonNullable<Awaited<ReturnType<typeof createOfficeShareLink>>>
+    export type CreateOfficeShareLinkMutationBody = BodyType<OfficeShareLinkInput>
+    export type CreateOfficeShareLinkMutationError = ErrorType<unknown>
+    export type CreateOfficeShareLinkMutationVariables = {data: BodyType<OfficeShareLinkInput>}
+
+    export const useCreateOfficeShareLink = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOfficeShareLink>>, TError,CreateOfficeShareLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOfficeShareLink>>,
+        TError,
+        CreateOfficeShareLinkMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOfficeShareLinkMutationOptions(options));
+    }
+
+export const getRevokeOfficeShareLinkUrl = (linkId: number,) => {
+
+
+
+
+  return `/api/office/share-links/${linkId}`
+}
+
+export const revokeOfficeShareLink = async (linkId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRevokeOfficeShareLinkUrl(linkId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeOfficeShareLinkMutationKey = () => ['revokeOfficeShareLink'] as const;
+
+export const getRevokeOfficeShareLinkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeOfficeShareLink>>, TError,RevokeOfficeShareLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeOfficeShareLink>>, TError,RevokeOfficeShareLinkMutationVariables, TContext> => {
+
+const mutationKey = getRevokeOfficeShareLinkMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeOfficeShareLink>>, RevokeOfficeShareLinkMutationVariables> = (props) => {
+          const {linkId} = props ?? {};
+
+          return  revokeOfficeShareLink(linkId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeOfficeShareLinkMutationResult = NonNullable<Awaited<ReturnType<typeof revokeOfficeShareLink>>>
+
+    export type RevokeOfficeShareLinkMutationError = ErrorType<unknown>
+    export type RevokeOfficeShareLinkMutationVariables = {linkId: number}
+
+    export const useRevokeOfficeShareLink = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeOfficeShareLink>>, TError,RevokeOfficeShareLinkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeOfficeShareLink>>,
+        TError,
+        RevokeOfficeShareLinkMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeOfficeShareLinkMutationOptions(options));
+    }
+
+export const getGetOfficeSharedReportUrl = () => {
+
+
+
+
+  return `/api/office/shared`
+}
+
+export const getOfficeSharedReport = async ( options?: Parameters<typeof customFetch>[1]): Promise<OfficeSharedReport> => {
+
+  return customFetch<OfficeSharedReport>(getGetOfficeSharedReportUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeSharedReportQueryKey = () => {
+    return [
+    `/api/office/shared`
+    ] as const;
+    }
+
+
+export const getGetOfficeSharedReportQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeSharedReport>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeSharedReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeSharedReportQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeSharedReport>>> = ({ signal }) => getOfficeSharedReport({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeSharedReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeSharedReportQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeSharedReport>>>
+export type GetOfficeSharedReportQueryError = ErrorType<void>
+
+
+
+export function useGetOfficeSharedReport<TData = Awaited<ReturnType<typeof getOfficeSharedReport>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeSharedReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeSharedReportQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOfficeSharedFileUrl = (attachmentId: number,) => {
+
+
+
+
+  return `/api/office/shared/files/${attachmentId}`
+}
+
+export const getOfficeSharedFile = async (attachmentId: number, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetOfficeSharedFileUrl(attachmentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeSharedFileQueryKey = (attachmentId: number,) => {
+    return [
+    `/api/office/shared/files/${attachmentId}`
+    ] as const;
+    }
+
+
+export const getGetOfficeSharedFileQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeSharedFile>>, TError = ErrorType<void>>(attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeSharedFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeSharedFileQueryKey(attachmentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeSharedFile>>> = ({ signal }) => getOfficeSharedFile(attachmentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: attachmentId !== null && attachmentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeSharedFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeSharedFileQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeSharedFile>>>
+export type GetOfficeSharedFileQueryError = ErrorType<void>
+
+
+
+export function useGetOfficeSharedFile<TData = Awaited<ReturnType<typeof getOfficeSharedFile>>, TError = ErrorType<void>>(
+ attachmentId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeSharedFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeSharedFileQueryOptions(attachmentId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getHealthCheckUrl = () => {
 

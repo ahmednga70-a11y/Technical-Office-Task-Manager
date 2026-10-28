@@ -5,6 +5,123 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type OfficeShareLinkInputScope = typeof OfficeShareLinkInputScope[keyof typeof OfficeShareLinkInputScope];
+
+
+export const OfficeShareLinkInputScope = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export interface OfficeShareLinkInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  scope: OfficeShareLinkInputScope;
+  /**
+     * @maxItems 500
+     * @items.minimum 1
+     */
+  projectIds: number[];
+}
+
+export type OfficeShareLinkScope = typeof OfficeShareLinkScope[keyof typeof OfficeShareLinkScope];
+
+
+export const OfficeShareLinkScope = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export interface OfficeShareLink {
+  id: number;
+  title: string;
+  scope: OfficeShareLinkScope;
+  projectIds: number[];
+  createdAt: string;
+  /** @nullable */
+  revokedAt: string | null;
+}
+
+export type OfficeSharedReportProjectsItem = {
+  id: number;
+  name: string;
+  description: string;
+};
+
+export type TaskCategory = typeof TaskCategory[keyof typeof TaskCategory];
+
+
+export const TaskCategory = {
+  shop_drawing: 'shop_drawing',
+  submittal: 'submittal',
+  rfi: 'rfi',
+  quantity_takeoff: 'quantity_takeoff',
+  coordination: 'coordination',
+  other: 'other',
+} as const;
+
+export type TaskPriority = typeof TaskPriority[keyof typeof TaskPriority];
+
+
+export const TaskPriority = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  urgent: 'urgent',
+} as const;
+
+export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus];
+
+
+export const TaskStatus = {
+  todo: 'todo',
+  in_progress: 'in_progress',
+  review: 'review',
+  done: 'done',
+} as const;
+
+export interface Task {
+  id: number;
+  projectId: number;
+  projectName: string;
+  title: string;
+  description: string;
+  category: TaskCategory;
+  priority: TaskPriority;
+  status: TaskStatus;
+  /** @nullable */
+  assigneeId: number | null;
+  /** @nullable */
+  assigneeName: string | null;
+  dueDate: string;
+  updatedAt: string;
+}
+
+export interface OfficeAttachment {
+  id: number;
+  /** @nullable */
+  projectId: number | null;
+  /** @nullable */
+  taskId: number | null;
+  uploadedByName: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+  canDelete: boolean;
+}
+
+export interface OfficeSharedReport {
+  title: string;
+  updatedAt: string;
+  projects: OfficeSharedReportProjectsItem[];
+  tasks: Task[];
+  files: OfficeAttachment[];
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -134,20 +251,6 @@ export interface OfficeNotificationRead {
   readAt: string;
 }
 
-export interface OfficeAttachment {
-  id: number;
-  /** @nullable */
-  projectId: number | null;
-  /** @nullable */
-  taskId: number | null;
-  uploadedByName: string;
-  fileName: string;
-  contentType: string;
-  size: number;
-  createdAt: string;
-  canDelete: boolean;
-}
-
 export type OfficeAttachmentUploadInputScope = typeof OfficeAttachmentUploadInputScope[keyof typeof OfficeAttachmentUploadInputScope];
 
 
@@ -274,55 +377,6 @@ export interface Project {
   endDate: string | null;
   taskCount: number;
   completedTaskCount: number;
-  updatedAt: string;
-}
-
-export type TaskCategory = typeof TaskCategory[keyof typeof TaskCategory];
-
-
-export const TaskCategory = {
-  shop_drawing: 'shop_drawing',
-  submittal: 'submittal',
-  rfi: 'rfi',
-  quantity_takeoff: 'quantity_takeoff',
-  coordination: 'coordination',
-  other: 'other',
-} as const;
-
-export type TaskPriority = typeof TaskPriority[keyof typeof TaskPriority];
-
-
-export const TaskPriority = {
-  low: 'low',
-  medium: 'medium',
-  high: 'high',
-  urgent: 'urgent',
-} as const;
-
-export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus];
-
-
-export const TaskStatus = {
-  todo: 'todo',
-  in_progress: 'in_progress',
-  review: 'review',
-  done: 'done',
-} as const;
-
-export interface Task {
-  id: number;
-  projectId: number;
-  projectName: string;
-  title: string;
-  description: string;
-  category: TaskCategory;
-  priority: TaskPriority;
-  status: TaskStatus;
-  /** @nullable */
-  assigneeId: number | null;
-  /** @nullable */
-  assigneeName: string | null;
-  dueDate: string;
   updatedAt: string;
 }
 
@@ -516,6 +570,11 @@ export interface DashboardOverview {
   upcomingTasks: Task[];
   recentTasks: Task[];
 }
+
+export type CreateOfficeShareLink201 = {
+  link: OfficeShareLink;
+  token: string;
+};
 
 export type ListTasksParams = {
 projectId?: number;
