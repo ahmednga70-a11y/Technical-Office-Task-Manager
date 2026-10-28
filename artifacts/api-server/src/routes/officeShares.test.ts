@@ -8,13 +8,14 @@ import { db, pool, projectsTable, tasksTable, officeAttachmentsTable, officeShar
 import sharesRouter from "./officeShares";
 import officeRouter from "./office";
 import { GetOfficeSharedReportResponse } from "@workspace/api-zod";
+import { officePasswordSessionMiddleware } from "../lib/officePasswordAuth";
 
 // Integration test against DEVELOPMENT only. All fixtures are isolated and
 // removed in finally; no existing office rows or storage objects are mutated.
 test("read-only capabilities enforce project, file, method and revocation boundaries", async () => {
   assert.equal(process.env.OFFICE_AUTH_MODE, "password", "Run with OFFICE_AUTH_MODE=password");
   const app = express();
-  app.use(express.json(), sharesRouter, officeRouter);
+  app.use(express.json(), officePasswordSessionMiddleware, sharesRouter, officeRouter);
   const server = app.listen(0, "127.0.0.1");
   await new Promise<void>(resolve => server.once("listening", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -56,6 +57,9 @@ test("read-only capabilities enforce project, file, method and revocation bounda
     }
     const response = await read("/office/shared", single.token);
     assert.equal(response.status, 200);
+    assert.equal((await fetch(base + "/office/shared", {
+      headers: { "X-Office-Share": single.token, Cookie: "office_session=expired" },
+    })).status, 200, "A stale office cookie must not block a valid read-only link");
     assert.match(response.headers.get("cache-control")!, /no-store/);
     const report = GetOfficeSharedReportResponse.parse(await response.json());
     assert.deepEqual(report.projects.map((p: { id: number }) => p.id), [projects[0].id]);
@@ -76,8 +80,8 @@ test("read-only capabilities enforce project, file, method and revocation bounda
     assert.equal((await read("/office/shared/files/2147483647", single.token)).status, 404);
     assert.equal((await read(`/office/attachments/${files[2].id}/content`, single.token)).status, 401);
     for (const method of ["POST", "PATCH", "PUT", "DELETE"]) {
-      assert.equal((await read("/office/shared", single.token, method)).status, 405);
-      assert.equal((await read(`/office/shared/files/${files[2].id}`, single.token, method)).status, 405);
+      assert.equal((await read("/office/shared", single.token, method)).status, 401);
+      assert.equal((await read(`/office/shared/files/${files[2].id}`, single.token, method)).status, 401);
       assert.equal((await read(`/tasks/${tasks[0].id}`, single.token, method)).status, 401);
     }
     for (const method of ["GET", "POST"]) {

@@ -97,7 +97,12 @@ export async function officePasswordSessionMiddleware(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  if (req.path === "/auth/login") {
+  const isSharedRead = (req.method === "GET" || req.method === "HEAD") &&
+    (req.path === "/office/shared" || /^\/office\/shared\/files\/\d+$/.test(req.path));
+  // These two read routes authenticate their own scoped capability. They must
+  // work without an office cookie (including when an old cookie has expired).
+  // Management endpoints and all writes still require an office session.
+  if (req.path === "/auth/login" || isSharedRead) {
     next();
     return;
   }

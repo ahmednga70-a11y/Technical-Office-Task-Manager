@@ -46,3 +46,13 @@ The user said about owning a domain: «لا، وعاوز أتجنب شراء د�
 **Why:** The user stated this constraint while comparing lower-cost hosting alternatives.
 
 **How to apply:** Prefer options that do not require purchasing a domain. This does not by itself authorize replacing Vercel or Clerk; explain account-migration effects and get approval before changing providers.
+
+Public-access changes must be checked through the production password-session
+admission layer, not only through development's Clerk flow or an isolated router.
+
+**Why:** A read-only sharing flow passed development browser checks while the
+production session gate still rejected visitors without an office account.
+
+**How to apply:** Include the real password-session middleware in access tests
+for new public routes. Keep capability-based reads separate from office sessions;
+never grant mutation or management access through a follow-up link.
