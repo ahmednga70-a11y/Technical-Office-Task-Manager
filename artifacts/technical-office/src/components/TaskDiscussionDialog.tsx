@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, CalendarDays, Check, Clock3, MessageCircle, RefreshCw, Send, UserRound, X } from 'lucide-react';
+import { AlertCircle, CalendarDays, Check, Clock3, MessageCircle, Paperclip, RefreshCw, Send, UserRound, X } from 'lucide-react';
 import {
   getGetTaskDiscussionQueryKey,
   useCreateTaskComment,
@@ -84,8 +84,14 @@ export default function TaskDiscussionDialog({ task, canUpload, onClose }: TaskD
     query: { queryKey: getGetTaskDiscussionQueryKey(task.id) },
   });
   const createComment = useCreateTaskComment();
+  const [activeSection, setActiveSection] = useState<'chat' | 'files'>('chat');
   const [body, setBody] = useState('');
   const [validationMessage, setValidationMessage] = useState('');
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [activeSection, task.id]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -146,13 +152,13 @@ export default function TaskDiscussionDialog({ task, canUpload, onClose }: TaskD
             <div className="min-w-0">
               <p className="mb-2 flex items-center gap-2 text-[11px] font-bold tracking-[.08em] text-[#d77850]">
                 <MessageCircle size={14} aria-hidden="true" />
-                نقاش وسجل المهمة
+                نقاش وملفات المهمة
               </p>
               <h2 id="task-discussion-title" className="truncate text-xl font-extrabold leading-8 text-[#203b39] sm:text-2xl">
                 {task.title}
               </h2>
               <p id="task-discussion-subtitle" className="mt-1 text-xs text-[#78837d]">
-                {task.projectName} <span className="mx-1 text-[#c4bfb1]">/</span> كل القرارات والتعليقات في مكان واحد
+                {task.projectName} <span className="mx-1 text-[#c4bfb1]">/</span> المحادثة والملفات في قسمين مستقلين
               </p>
             </div>
             <button
@@ -178,10 +184,41 @@ export default function TaskDiscussionDialog({ task, canUpload, onClose }: TaskD
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7" aria-live="polite">
-          <div className="mb-5">
+        <div
+          className="flex shrink-0 gap-2 border-b border-[#e7e3d8] bg-[#f5f3eb] px-5 py-3 sm:px-7"
+          role="group"
+          aria-label="أقسام المهمة"
+        >
+          <button
+            type="button"
+            className={`btn min-w-0 flex-1 justify-center ${activeSection === 'chat' ? 'btn-primary' : 'btn-soft'}`}
+            aria-pressed={activeSection === 'chat'}
+            aria-controls={`task-chat-${task.id}`}
+            onClick={() => setActiveSection('chat')}
+            data-testid="button-task-section-chat"
+          >
+            <MessageCircle size={16} aria-hidden="true" />
+            المحادثة
+          </button>
+          <button
+            type="button"
+            className={`btn min-w-0 flex-1 justify-center ${activeSection === 'files' ? 'btn-primary' : 'btn-soft'}`}
+            aria-pressed={activeSection === 'files'}
+            aria-controls={`task-files-${task.id}`}
+            onClick={() => setActiveSection('files')}
+            data-testid="button-task-section-files"
+          >
+            <Paperclip size={16} aria-hidden="true" />
+            ملفات المهمة
+          </button>
+        </div>
+
+        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7" aria-live="polite">
+          {/* Keep both sections mounted so switching never interrupts an upload or loses a draft. */}
+          <div id={`task-files-${task.id}`} hidden={activeSection !== 'files'} data-testid="panel-task-files">
             <AttachmentsPanel scope="task" taskId={task.id} canUpload={canUpload} />
           </div>
+          <div id={`task-chat-${task.id}`} hidden={activeSection !== 'chat'} data-testid="panel-task-chat">
           {discussionQuery.isLoading ? (
             <div className="space-y-5 py-2" aria-label="جارٍ تحميل النقاش" role="status">
               {[0, 1, 2].map((item) => (
@@ -259,9 +296,10 @@ export default function TaskDiscussionDialog({ task, canUpload, onClose }: TaskD
               </p>
             </div>
           )}
+          </div>
         </div>
 
-        <form onSubmit={submitComment} className="shrink-0 border-t border-[#e7e3d8] bg-[#f7f5ee] px-5 py-4 sm:px-7">
+        <form hidden={activeSection !== 'chat'} onSubmit={submitComment} className="shrink-0 border-t border-[#e7e3d8] bg-[#f7f5ee] px-5 py-4 sm:px-7">
           <label htmlFor="task-discussion-comment" className="field-label">أضف تعليقاً</label>
           <textarea
             id="task-discussion-comment"

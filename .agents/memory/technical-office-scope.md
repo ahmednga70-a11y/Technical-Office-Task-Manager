@@ -28,3 +28,10 @@ user's workflow; projects primarily group the tasks.
 
 **How to apply:** Prioritize task completion, remaining work, and task progress
 in navigation, dashboards, and project summaries rather than project schedules.
+
+Task file uploads should be separate from the task conversation.
+
+**Why:** The user asked: «فى النقاش محتاج افصل ماكن رفع الملفات عن الشات».
+
+**How to apply:** Keep task files and chat in clearly separate sections when
+changing the discussion interface.
